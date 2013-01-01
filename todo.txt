@@ -80,3 +80,4 @@
 - tested 16W beacon outdoors in direct sunlight
 -- works to about 18 m
 
+test commit
