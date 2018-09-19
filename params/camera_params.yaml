@@ -1,0 +1,85 @@
+camera:
+  camera_nodelet:
+    frame_rate: 15
+    auto_exposure: False
+    exposure: -7.58496 # -7.58496 is minimum
+    shutter_speed: 0.0015 # 0.005
+    auto_shutter: False
+    auto_gain: False
+    gain: 5 # -2.5 # -10 to 10
+
+# Fence Settings 4
+# camera:
+#   camera_nodelet:
+#     frame_rate: 30
+#     auto_exposure: False
+#     exposure: -7.58496 # -7.58496 is minimum
+#     shutter_speed: 0.005
+#     auto_shutter: False
+#     auto_gain: False
+#     gain: -7.5 
+
+# Fence Settings 3
+# camera:
+#   camera_nodelet:
+#     frame_rate: 30
+#     auto_exposure: False
+#     exposure: -7.58496 # -7.58496 is minimum
+#     shutter_speed: 0.0075
+#     auto_shutter: False
+#     auto_gain: False
+#     gain: -10 
+
+# Fence Settings 2
+# camera:
+#   camera_nodelet:
+#     frame_rate: 30
+#     auto_exposure: False
+#     exposure: -7.58496 # -7.58496 is minimum
+#     shutter_speed: 0.005
+#     auto_shutter: False
+#     auto_gain: False
+#     gain: -10 
+
+# Fence Settings 1
+# camera:
+#   camera_nodelet:
+#     frame_rate: 30
+#     auto_exposure: False
+#     exposure: -7.58496 # -7.58496 is minimum
+#     shutter_speed: 0.0025
+#     auto_shutter: False
+#     auto_gain: False
+#     gain: -10 
+
+# closest_17m and after until another is shown above
+# camera:
+#   camera_nodelet:
+#     frame_rate: 30
+#     auto_exposure: False
+#     exposure: -7.58496 # -7.58496 is minimum
+#     shutter_speed: 0.005
+#     auto_shutter: False
+#     auto_gain: False
+#     gain: -2.5 
+
+    # auto_white_balance: False
+    # white_balance_blue: 800
+    # white_balance_red: 450
+    # camera_info_url: $(find creare)/params/calib_file.yaml
+
+# FINAL CAMERA SETTINGS FROM OUTDOOR IR RANGE TESTING (WORKS AT 300 M WITH LITTLE TO NO NOISE)
+# camera:
+#   camera_nodelet:
+#     frame_rate: 30
+#     auto_exposure: False
+#     exposure: -7.58496 # -7.58496 is minimum
+#     shutter_speed: 0.00075 # 0.01 for normal LEDs, 0.00000000001 for 100W
+#     auto_shutter: False
+#     auto_gain: False
+#     gain: 0 # -2.25 for normal LEDs, 0 for 100W
+#     # auto_white_balance: False
+#     # white_balance_blue: 800
+#     # white_balance_red: 450
+#     # camera_info_url: $(find creare)/params/calib_file.yaml
+

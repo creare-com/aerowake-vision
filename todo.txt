@@ -1,0 +1,82 @@
+#------------------------------------------------------------------------------#
+# Today
+#------------------------------------------------------------------------------#
+
+- set up system using mono camera
+-- test on 1:100 model
+-- test outdoors with 100W beacon
+
+- determine minimum zoom needed to see feature at distance
+
+- get lidar working with ODROID  
+
+
+
+#------------------------------------------------------------------------------#
+# Soon
+#------------------------------------------------------------------------------#
+
+- set up synchronization scheme for all pre-testing
+
+- assemble drone
+
+- test camera calibration on effect of error vs. distance slope
+
+- determine how to calibrate when ground truth is unknown
+-- determine internal model of feature based upon known camera location
+
+- test in full x, y, and z
+
+- determine imu, gps, etc. integration
+
+- figure out how to determine error bars of system
+
+- fly indoors to test effect on system
+
+
+
+#------------------------------------------------------------------------------#
+# Eventually
+#------------------------------------------------------------------------------#
+
+- test outside on West Garage
+-- once I have a strong outdoor beacon candidate
+
+- consider automatic landing platform
+-- sensing and landing robustly with considerable disturbances
+-- land quad without affecting path of carrier vehicle 
+
+
+
+#------------------------------------------------------------------------------#
+# Accomplished
+#------------------------------------------------------------------------------#
+
+- test beacon outdoors with inline optical filter
+
+- LISTEN TO LUCA'S TALK ABOUT FILTERS
+-- presentation not available online
+
+- put new acl repo on ODROID
+-- had to 'rm -rf' acl_system and acl_control since they were on the old repo
+-- I assume the other folders are on the old repo as well
+
+- read part 107 requirements and look at eahs(?) webpage for MIT's flight requirements
+-- Requirements:
+--- remote pilot airman certificate with a small UAS rating test at FAA facility
+--- registered UAS
+--- minimum 3 mi visibility
+--- <400 ft altitude
+--- must be Class G else need ATC permission
+
+- test beacon outdoors
+
+- build 100W LED beacon
+
+- fix plot_data.py plot axes
+
+- fix noise handling and clean up code
+
+- tested 16W beacon outdoors in direct sunlight
+-- works to about 18 m
+
