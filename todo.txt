@@ -8,7 +8,7 @@
 
 - determine minimum zoom needed to see feature at distance
 
-- get lidar working with ODROID  
+- get lidar working with ODROID
 
 
 
