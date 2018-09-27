@@ -1,9 +1,6 @@
 <!-- Launch tag so that file is identified as a launch file -->
 <launch>
 
-  <!-- Launch the PointGrey camera driver via the PointGrey launch file -->
-  <!-- <include file="$(find pointgrey_camera_driver)/launch/camera.launch" /> -->
-
   <!-- Load camera parameters from file -->
   <rosparam command="load" file="$(find creare)/params/camera_params.yaml"/>
   <param name="/camera/camera_info_url" type="string" value="file://$(find creare)/params/cam_calib.yaml" />
