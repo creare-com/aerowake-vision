@@ -38,11 +38,11 @@ class CentroidFinder(object):
     self._bridge = CvBridge()
 
     # Publishers
-    self.pub_initial_contours = rospy.Publisher("/initial_centroids",Centroids,queue_size=1)
+    self._pub_initial_centroids = rospy.Publisher("/centroids/initial",Centroids,queue_size=1)
 
     # Subscribers
-    self.sub_img_raw = rospy.Subscriber("/camera/image_raw",Image,self.cbImgRaw)
-    self.sub_prev_sol_bounds = rospy.Subscriber("/prev_solution_bounds",SolutionBounds,self.cbPrevSolBounds)
+    self._sub_img_raw = rospy.Subscriber("/camera/image_raw",Image,self.cbImgRaw)
+    self._sub_prev_sol_bounds = rospy.Subscriber("/prev_solution_bounds",SolutionBounds,self.cbPrevSolBounds)
 
   def rectify(self):
     # Undistortion
@@ -89,7 +89,7 @@ class CentroidFinder(object):
       centroids = centroids.reshape(1,num_rows*num_cols).tolist()[0]
 
     # Publish the data
-    self.pub_initial_contours.publish(centroids)
+    self._pub_initial_centroids.publish(centroids)
 
   def obtain_initial_centroids(self):
     '''
@@ -129,7 +129,7 @@ class CentroidFinder(object):
     max_value = 255
     block_size = 5
     const = 1
-    threshold_value = 100
+    threshold_value = 10
     _,self._img = cv2.threshold(self._img,threshold_value,max_value,cv2.THRESH_BINARY)
 
     if self._show_images:
@@ -192,7 +192,7 @@ if __name__ == "__main__":
   rospy.init_node('centroid_finder')
 
   # Create the node
-  node = CentroidFinder(show_images = False)
+  node = CentroidFinder(show_images = True)
 
   # Spin
   rospy.spin()
