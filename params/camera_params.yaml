@@ -3,10 +3,10 @@ camera:
     frame_rate: 15
     auto_exposure: False
     exposure: -7.58496 # -7.58496 is minimum
-    shutter_speed: 0.0015 # 0.005
+    shutter_speed: 0.00005 # 0.005
     auto_shutter: False
     auto_gain: False
-    gain: 5 # -2.5 # -10 to 10
+    gain: -10 # -2.5 # -10 to 10
 
 # Fence Settings 4
 # camera:
