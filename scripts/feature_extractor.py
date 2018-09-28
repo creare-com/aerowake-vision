@@ -755,13 +755,6 @@ class ImageProcessor(object):
   def __init__(self):
     self.found_one_solution = False
 
-    # Set camera matrix and distortion coeficients
-    cam_info = rospy.wait_for_message("/camera/camera_info",CameraInfo)
-    self.mtx = np.array([cam_info.K[0:3], \
-                         cam_info.K[3:6], \
-                         cam_info.K[6:9]])
-    self.distortion = np.array(cam_info.D)
-
     # Previous Solution
     self.prev_solution = [[-1,-1],[-1,-1],[-1,-1],[-1,-1],[-1,-1],[-1,-1],[-1,-1],[-1,-1],[-1,-1,-1],[-1,-1,-1],False]
 
@@ -769,12 +762,10 @@ class ImageProcessor(object):
     self.bridge = CvBridge()
 
     # Publishers
-    self.pub_pos_as_str = rospy.Publisher("/my_pos_data",String,queue_size=1)
     self.pub_prev_sol = rospy.Publisher("/prev_solution",FeaturePoints,queue_size=1)
-    self.pub_img_proc = rospy.Publisher("/camera/my_image_proc",Image, queue_size=1)
 
     # Subscribers
-    self.sub_img_rect  = rospy.Subscriber("rectified_image",Image,self.cbImgRect)
+    self.sub_img_raw  = rospy.Subscriber("/camera/image_raw",Image,self.cbImgRect)
     self.sub_prev_sol  = rospy.Subscriber("/prev_solution",FeaturePoints,self.cbPrevSol)
 
   def cbPrevSol(self,data):
@@ -799,218 +790,170 @@ class ImageProcessor(object):
     # Collect time of when image was received
     time = rospy.get_rostime()
 
-    outer_debug_flag = False
-    if outer_debug_flag:
-      pr = cProfile.Profile()
-      pr.enable()
-
     # Convert the ROS image to an OpenCV image
     try:
       img = self.bridge.imgmsg_to_cv2(data, '8UC1')
     except CvBridgeError as e:
       print text_colors.WARNING + 'Warning: Image converted unsuccessfully before processing.' + text_colors.ENDCOLOR
-      #rospy.loginfo(e)
 
-    # Remove the edge of the image since there are erroneous pixels in the top left of the image (some sort 
-    # of image-type conversion error perhaps?)
+    # Remove the edge of the image since there are erroneous pixels in the top left of the image (some sort of image conversion error perhaps?)
     edge_buffer = 1
     img = img[edge_buffer:img.shape[0] - edge_buffer, edge_buffer:img.shape[1] - edge_buffer]
 
-    # Obtain a distance estimation and a return image
-    img_ret, found_feature, position_estimate, feature_points, rvecs, tvecs = feature_extraction(img,self.prev_solution,self.mtx,self.distortion)
+    # Find feature
+    found_feature, position_estimate, feature_points, rvecs, tvecs = feature_extraction(img,self.prev_solution,self.mtx,self.distortion)
 
-    # Augment the image to show the position estimate
-    if False:#True
-      if found_feature:
-        x = position_estimate[0]
-        y = position_estimate[1]
-        z = position_estimate[2]
-        distance_estimate = np.sqrt(x**2 + y**2 + z**2)
+    # # Augment the image to show the position estimate
+    # if False:#True
+    #   if found_feature:
+    #     x = position_estimate[0]
+    #     y = position_estimate[1]
+    #     z = position_estimate[2]
+    #     distance_estimate = np.sqrt(x**2 + y**2 + z**2)
 
-        x_str = 'x:'
-        y_str = 'y:'
-        z_str = 'z:'
-        dist_str = 'd:'
+    #     x_str = 'x:'
+    #     y_str = 'y:'
+    #     z_str = 'z:'
+    #     dist_str = 'd:'
 
-        x_num = '%7.2f m' % x
-        y_num = '%7.2f m' % y
-        z_num = '%7.2f m' % z
-        dist_num = '%7.2f m' % distance_estimate
+    #     x_num = '%7.2f m' % x
+    #     y_num = '%7.2f m' % y
+    #     z_num = '%7.2f m' % z
+    #     dist_num = '%7.2f m' % distance_estimate
 
-        cv2.putText(img_ret,x_str,(10,25),font,1,255,1,cv2.CV_AA)
-        cv2.putText(img_ret,y_str,(10,50),font,1,255,1,cv2.CV_AA)
-        cv2.putText(img_ret,z_str,(10,75),font,1,255,1,cv2.CV_AA)
-        cv2.putText(img_ret,dist_str,(10,100),font,1,255,1,cv2.CV_AA)
+    #     cv2.putText(img_ret,x_str,(10,25),font,1,255,1,cv2.CV_AA)
+    #     cv2.putText(img_ret,y_str,(10,50),font,1,255,1,cv2.CV_AA)
+    #     cv2.putText(img_ret,z_str,(10,75),font,1,255,1,cv2.CV_AA)
+    #     cv2.putText(img_ret,dist_str,(10,100),font,1,255,1,cv2.CV_AA)
 
-        cv2.putText(img_ret,x_num,(35,25),font,1,255,1,cv2.CV_AA)
-        cv2.putText(img_ret,y_num,(35,50),font,1,255,1,cv2.CV_AA)
-        cv2.putText(img_ret,z_num,(35,75),font,1,255,1,cv2.CV_AA)
-        cv2.putText(img_ret,dist_num,(35,100),font,1,255,1,cv2.CV_AA)
-      else:
-        cv2.putText(img_ret,' Feature',(27,50),font,1,255,1,cv2.CV_AA)
-        cv2.putText(img_ret,'Not Found',(25,75),font,1,255,1,cv2.CV_AA)
-        pass
-      cv2.imshow('augmented',img_ret)
-      cv2.waitKey(1)
+    #     cv2.putText(img_ret,x_num,(35,25),font,1,255,1,cv2.CV_AA)
+    #     cv2.putText(img_ret,y_num,(35,50),font,1,255,1,cv2.CV_AA)
+    #     cv2.putText(img_ret,z_num,(35,75),font,1,255,1,cv2.CV_AA)
+    #     cv2.putText(img_ret,dist_num,(35,100),font,1,255,1,cv2.CV_AA)
+    #   else:
+    #     cv2.putText(img_ret,' Feature',(27,50),font,1,255,1,cv2.CV_AA)
+    #     cv2.putText(img_ret,'Not Found',(25,75),font,1,255,1,cv2.CV_AA)
+    #     pass
 
-    prev_sol = FeaturePoints()
+    # prev_sol = FeaturePoints()
 
-    if found_feature:
-      # Calculate distance
-      x = position_estimate[0]
-      y = position_estimate[1]
-      z = position_estimate[2]
-      distance_estimate = np.sqrt(x**2 + y**2 + z**2)
+    # if found_feature:
+    #   # Calculate distance
+    #   x = position_estimate[0]
+    #   y = position_estimate[1]
+    #   z = position_estimate[2]
+    #   distance_estimate = np.sqrt(x**2 + y**2 + z**2)
 
-      # Set the solution for the next loop
-      prev_sol.found_solution = True
+    #   # Set the solution for the next loop
+    #   prev_sol.found_solution = True
 
-      prev_sol.bottom_left_x         = feature_points[0][0][0]
-      prev_sol.bottom_left_y         = feature_points[0][0][1]
-      prev_sol.bottom_middle_left_x  = feature_points[1][0][0]
-      prev_sol.bottom_middle_left_y  = feature_points[1][0][1]
-      prev_sol.bottom_middle_right_x = feature_points[2][0][0]
-      prev_sol.bottom_middle_right_y = feature_points[2][0][1]
-      prev_sol.bottom_right_x        = feature_points[3][0][0]
-      prev_sol.bottom_right_y        = feature_points[3][0][1]
-      prev_sol.top_left_x            = feature_points[4][0][0]
-      prev_sol.top_left_y            = feature_points[4][0][1]
-      prev_sol.top_middle_left_x     = feature_points[5][0][0]
-      prev_sol.top_middle_left_y     = feature_points[5][0][1]
-      prev_sol.top_middle_right_x    = feature_points[6][0][0]
-      prev_sol.top_middle_right_y    = feature_points[6][0][1]
-      prev_sol.top_right_x           = feature_points[7][0][0]
-      prev_sol.top_right_y           = feature_points[7][0][1]
+    #   prev_sol.bottom_left_x         = feature_points[0][0][0]
+    #   prev_sol.bottom_left_y         = feature_points[0][0][1]
+    #   prev_sol.bottom_middle_left_x  = feature_points[1][0][0]
+    #   prev_sol.bottom_middle_left_y  = feature_points[1][0][1]
+    #   prev_sol.bottom_middle_right_x = feature_points[2][0][0]
+    #   prev_sol.bottom_middle_right_y = feature_points[2][0][1]
+    #   prev_sol.bottom_right_x        = feature_points[3][0][0]
+    #   prev_sol.bottom_right_y        = feature_points[3][0][1]
+    #   prev_sol.top_left_x            = feature_points[4][0][0]
+    #   prev_sol.top_left_y            = feature_points[4][0][1]
+    #   prev_sol.top_middle_left_x     = feature_points[5][0][0]
+    #   prev_sol.top_middle_left_y     = feature_points[5][0][1]
+    #   prev_sol.top_middle_right_x    = feature_points[6][0][0]
+    #   prev_sol.top_middle_right_y    = feature_points[6][0][1]
+    #   prev_sol.top_right_x           = feature_points[7][0][0]
+    #   prev_sol.top_right_y           = feature_points[7][0][1]
 
-      prev_sol.rvecs1 = rvecs[0]
-      prev_sol.rvecs2 = rvecs[1]
-      prev_sol.rvecs3 = rvecs[2]
+    #   prev_sol.rvecs1 = rvecs[0]
+    #   prev_sol.rvecs2 = rvecs[1]
+    #   prev_sol.rvecs3 = rvecs[2]
 
-      prev_sol.tvecs1 = tvecs[0]
-      prev_sol.tvecs2 = tvecs[1]
-      prev_sol.tvecs3 = tvecs[2]
+    #   prev_sol.tvecs1 = tvecs[0]
+    #   prev_sol.tvecs2 = tvecs[1]
+    #   prev_sol.tvecs3 = tvecs[2]
 
-      self.found_one_solution = True
+    #   self.found_one_solution = True
 
-      # Create a string for publishing
-      # data_str = ('[SUCCESS]\n\ttime:\n\t\tsecs: %s\n\t\tnsecs: %s\n' %(time.secs,time.nsecs))
-      data_str = ('[SUCCESS]\n\ttime:\n\t\tsecs: %s\n\t\tnsecs: %s\n\tposition' \
-          '\n\t\tx: %s\n\t\ty: %s\n\t\tz: %s\n' %(time.secs,time.nsecs,x,y,z))
-    elif self.found_one_solution:
-      # Set the solution for the next loop
+    #   # Create a string for publishing
+    #   # data_str = ('[SUCCESS]\n\ttime:\n\t\tsecs: %s\n\t\tnsecs: %s\n' %(time.secs,time.nsecs))
+    #   data_str = ('[SUCCESS]\n\ttime:\n\t\tsecs: %s\n\t\tnsecs: %s\n\tposition' \
+    #       '\n\t\tx: %s\n\t\ty: %s\n\t\tz: %s\n' %(time.secs,time.nsecs,x,y,z))
+    # elif self.found_one_solution:
+    #   # Set the solution for the next loop
 
-      # Set this to true even though we did not find a solution on this particular loop. This should be 
-      # rewritten to be more clear, but essentially, if we did not find a solution on this loop then we 
-      # should use the most recent solution that we did find. To use that solution, we set this to true. 
-      prev_sol.found_solution = True
+    #   # Set this to true even though we did not find a solution on this particular loop. This should be 
+    #   # rewritten to be more clear, but essentially, if we did not find a solution on this loop then we 
+    #   # should use the most recent solution that we did find. To use that solution, we set this to true. 
+    #   prev_sol.found_solution = True
 
-      prev_sol.bottom_left_x         = self.prev_solution[0][0]
-      prev_sol.bottom_left_y         = self.prev_solution[0][1]
-      prev_sol.bottom_middle_left_x  = self.prev_solution[1][0]
-      prev_sol.bottom_middle_left_y  = self.prev_solution[1][1]
-      prev_sol.bottom_middle_right_x = self.prev_solution[2][0]
-      prev_sol.bottom_middle_right_y = self.prev_solution[2][1]
-      prev_sol.bottom_right_x        = self.prev_solution[3][0]
-      prev_sol.bottom_right_y        = self.prev_solution[3][1]
-      prev_sol.top_left_x            = self.prev_solution[4][0]
-      prev_sol.top_left_y            = self.prev_solution[4][1]
-      prev_sol.top_middle_left_x     = self.prev_solution[5][0]
-      prev_sol.top_middle_left_y     = self.prev_solution[5][1]
-      prev_sol.top_middle_right_x    = self.prev_solution[6][0]
-      prev_sol.top_middle_right_y    = self.prev_solution[6][1]
-      prev_sol.top_right_x           = self.prev_solution[7][0]
-      prev_sol.top_right_y           = self.prev_solution[7][1]
+    #   prev_sol.bottom_left_x         = self.prev_solution[0][0]
+    #   prev_sol.bottom_left_y         = self.prev_solution[0][1]
+    #   prev_sol.bottom_middle_left_x  = self.prev_solution[1][0]
+    #   prev_sol.bottom_middle_left_y  = self.prev_solution[1][1]
+    #   prev_sol.bottom_middle_right_x = self.prev_solution[2][0]
+    #   prev_sol.bottom_middle_right_y = self.prev_solution[2][1]
+    #   prev_sol.bottom_right_x        = self.prev_solution[3][0]
+    #   prev_sol.bottom_right_y        = self.prev_solution[3][1]
+    #   prev_sol.top_left_x            = self.prev_solution[4][0]
+    #   prev_sol.top_left_y            = self.prev_solution[4][1]
+    #   prev_sol.top_middle_left_x     = self.prev_solution[5][0]
+    #   prev_sol.top_middle_left_y     = self.prev_solution[5][1]
+    #   prev_sol.top_middle_right_x    = self.prev_solution[6][0]
+    #   prev_sol.top_middle_right_y    = self.prev_solution[6][1]
+    #   prev_sol.top_right_x           = self.prev_solution[7][0]
+    #   prev_sol.top_right_y           = self.prev_solution[7][1]
 
-      prev_sol.rvecs1 = self.prev_solution[8][0][0]
-      prev_sol.rvecs2 = self.prev_solution[8][1][0]
-      prev_sol.rvecs3 = self.prev_solution[8][2][0]
+    #   prev_sol.rvecs1 = self.prev_solution[8][0][0]
+    #   prev_sol.rvecs2 = self.prev_solution[8][1][0]
+    #   prev_sol.rvecs3 = self.prev_solution[8][2][0]
 
-      prev_sol.tvecs1 = self.prev_solution[9][0][0]
-      prev_sol.tvecs2 = self.prev_solution[9][1][0]
-      prev_sol.tvecs3 = self.prev_solution[9][2][0]
+    #   prev_sol.tvecs1 = self.prev_solution[9][0][0]
+    #   prev_sol.tvecs2 = self.prev_solution[9][1][0]
+    #   prev_sol.tvecs3 = self.prev_solution[9][2][0]
 
-      # Create a string for publishing
-      data_str = ('[FAILURE]\n\ttime:\n\t\tsecs: %s\n\t\tnsecs: %s\n' %(time.secs,time.nsecs))
-    else:
-      # Create a string for publishing
-      data_str = ('[FAILURE]\n\ttime:\n\t\tsecs: %s\n\t\tnsecs: %s\n' %(time.secs,time.nsecs))
+    #   # Create a string for publishing
+    #   data_str = ('[FAILURE]\n\ttime:\n\t\tsecs: %s\n\t\tnsecs: %s\n' %(time.secs,time.nsecs))
+    # else:
+    #   # Create a string for publishing
+    #   data_str = ('[FAILURE]\n\ttime:\n\t\tsecs: %s\n\t\tnsecs: %s\n' %(time.secs,time.nsecs))
         
-    want_to_publish_image = False
-    if want_to_publish_image:
-      img_ret = cv2.cvtColor(img_ret, cv2.COLOR_GRAY2BGR)
+    # want_to_publish_image = False
+    # if want_to_publish_image:
+    #   img_ret = cv2.cvtColor(img_ret, cv2.COLOR_GRAY2BGR)
 
-      # Convert the OpenCV image to a ROS image
-      converted_successfully = True
-      try:
-        data = self.bridge.cv2_to_imgmsg(img_ret, 'bgr8')
-      except:
-        converted_successfully = False
-        print text_colors.WARNING + 'Warning: Image converted unsuccessfully after processing.' + text_colors.ENDCOLOR
-        # rospy.loginfo(e)
+    #   # Convert the OpenCV image to a ROS image
+    #   converted_successfully = True
+    #   try:
+    #     data = self.bridge.cv2_to_imgmsg(img_ret, 'bgr8')
+    #   except:
+    #     converted_successfully = False
+    #     print text_colors.WARNING + 'Warning: Image converted unsuccessfully after processing.' + text_colors.ENDCOLOR
+    #     # rospy.loginfo(e)
 
-      # Publish the image with any modifications made (drawn axes, etc.)
-      if converted_successfully:
-        self.pub_img_proc.publish(data)
+    #   # Publish the image with any modifications made (drawn axes, etc.)
+    #   if converted_successfully:
+    #     self.pub_img_proc.publish(data)
 
-    # Publish the previous solution
-    self.pub_prev_sol.publish(prev_sol)
+    # # Publish the previous solution
+    # self.pub_prev_sol.publish(prev_sol)
 
-    # Publish the position data as a string
-    self.pub_pos_as_str.publish(data_str)
+    # # Publish the position data as a string
+    # self.pub_pos_as_str.publish(data_str)
 
-    if outer_debug_flag:
-      pr.disable()
-      s = StringIO.StringIO()
-      sortby = 'cumulative'
-      ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-      ps.print_stats()
-      print s.getvalue()
-
-
+    # if outer_debug_flag:
+    #   pr.disable()
+    #   s = StringIO.StringIO()
+    #   sortby = 'cumulative'
+    #   ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    #   ps.print_stats()
+    #   print s.getvalue()
 
 if __name__ == "__main__":
   # Initialize the node
-  rospy.init_node('image_rect_listener')
+  rospy.init_node('feature_extractor')
 
   # Create the node
   node = ImageProcessor()
 
   # Spin
   rospy.spin()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

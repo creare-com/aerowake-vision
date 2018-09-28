@@ -44,7 +44,12 @@ find_package(catkin REQUIRED
 
 ## Generate messages in the 'msg' folder
 add_message_files(
-  DIRECTORY msg FILES FeaturePoints.msg
+  DIRECTORY
+  msg
+  FILES
+  FeaturePoints.msg
+  SolutionBounds.msg
+  Centroids.msg
 )
 
 ## Generate services in the 'srv' folder
