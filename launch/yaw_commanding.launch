@@ -2,21 +2,13 @@
 <launch>
 
   <!-- Launch the PointGrey camera driver via the PointGrey launch file -->
-  <include file="$(find pointgrey_camera_driver)/launch/camera.launch" /> 
+  <include file="$(find pointgrey_camera_driver)/launch/my_camera.launch" /> 
 
   <!-- Load camera parameters from file -->
   <rosparam command="load" file="$(find creare)/params/camera_params.yaml"/>
-  <!-- <param name="/camera/camera_info_url" type="string" value="file://$(find creare)/params/cam_calib.yaml" /> -->
-
-  <!-- Launch image rectification node -->
-  <!-- <include file="$(find image_proc)/launch/image_proc.launch" ns="camera"> -->
-    <!-- <arg name="manager" value="camera_nodelet_manager" /> -->
-  <!-- </include> -->
 
   <!-- Start the yaw command generation node -->
   <node pkg="creare" name="image_yaw_creator" type="image_based_yaw.py" output="screen">
-    <!-- <remap from="rectified_image" to="/camera/image_color"/> -->
-    <!-- <remap from="rectified_image" to="/camera/image_mono"/> -->
     <remap from="raw_image" to="/camera/image_raw"/>
   </node>
 
