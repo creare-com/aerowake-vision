@@ -38,30 +38,17 @@ class text_colors:
 
 def dist(coords1,coords2):
   '''
-  Return the euclidean distance between two 2D points.
+  Return the euclidean distance between two points with units as passed.
   '''
   a = coords1[0] - coords2[0]
   b = coords1[1] - coords2[1]
   distance = np.sqrt(a**2 + b**2)
   return distance
 
-def draw(img,corners,imgpts):
-  img_deep_copy = np.array(img)
-  corner = tuple(corners[0].ravel())
-
-  cv2.line(img_deep_copy,corner,tuple(imgpts[0].ravel()), \
-      (255,0,0),5)
-  cv2.line(img_deep_copy,corner,tuple(imgpts[1].ravel()), \
-      (0,255,0),5)
-  cv2.line(img_deep_copy,corner,tuple(imgpts[2].ravel()), \
-      (0,0,255),5)
-  return img_deep_copy
-
 def cluster(data, maxgap):
   '''
   This method is taken from Raymond Hettinger at http://stackoverflow.com/questions/14783947/grouping-clustering-numbers-in-python
-  '''
-  '''
+
   Arrange data into groups where successive elements
   differ by no more than *maxgap*
 
@@ -71,6 +58,7 @@ def cluster(data, maxgap):
   >>> cluster([1, 6, 9, 99, 100, 102, 105, 134, 139, 141], maxgap=10)
   [[1, 6, 9], [99, 100, 102, 105], [134, 139, 141]]
   '''
+
   data = np.array(data)
   data.sort()
   groups = [[data[0]]]
@@ -81,160 +69,9 @@ def cluster(data, maxgap):
       groups.append([x])
   return groups
 
-def obtain_initial_centroids(img,prev_sol = None):
-  '''
-  This function takes in an image and returns an array of the positions of any contours that show up after filtering for green. 
-  '''
-  
-  #img1 = np.array(img)
-
-  # Initialize the region of interest. The region_of_interest[0] and region_of_interest[2] elements will be added to the location of each centroid, 
-  # so this needs to be initialized to zero for the case when there does not exist a previous solution. 
-  region_of_interest = [0, 0, 0, 0]
-
-  # If the previous solution exists, use it to crop the image
-  if not prev_sol is None:
-    # Create a block that makes a border surrounding the area of the points in the previous solution. This block is the only part of the image 
-    # that the program searches.
-    prev_points = prev_sol[:-3]
-
-    # Define the boundaries of the region of interest
-    left_most = np.minimum(prev_points[0][0],prev_points[4][0])
-    right_most = np.maximum(prev_points[3][0],prev_points[7][0])
-    upper_most = np.minimum(prev_points[4][1],prev_points[7][1])
-    lower_most = np.maximum(prev_points[0][1],prev_points[3][1])
-    border = 150
-    region_of_interest = [left_most - border, right_most + border, upper_most - border, lower_most + border]
-    for i in range(0,len(region_of_interest)):
-      region_of_interest[i] = int(region_of_interest[i])
-
-    # Ensure none of the boundaries are outside of the image
-    if region_of_interest[0] < 0:
-      region_of_interest[0] = 0
-    if region_of_interest[1] >= img.shape[1]:
-      region_of_interest[1] = img.shape[1] - 1
-    if region_of_interest[2] < 0:
-      region_of_interest[2] = 0
-    if region_of_interest[3] >= img.shape[0]:
-      region_of_interest[3] = img.shape[0] - 1
-
-    # Cut the image to only be the region of interest
-    img = img[region_of_interest[2]:region_of_interest[3],region_of_interest[0]:region_of_interest[1]]
-
-    # # Show the before / after image if desired
-    # img_to_show1 = img1
-    # img_outer    = np.ones_like(img1)
-    # img_outer[region_of_interest[2]:region_of_interest[3],region_of_interest[0]:region_of_interest[1]] = img
-    # img_to_show2 = img_outer 
-    # img_to_show  = np.hstack([np.asarray(img_to_show1), np.asarray(img_to_show2)])
-    # cv2.imshow('Before (Left) and After (Right) Reducing Search Space',img_to_show)
-    # cv2.waitKey(0)
-    # cv2.imwrite('/home/draper/Desktop/temp.jpg',img_to_show)
-
-  # cv2.imshow('orig',img)
-  # cv2.waitKey(1)
-
-  #img1 = np.array(img)
-
-  # # Blur the image
-  # kernelX = np.array([0.3,0.4,0.3])
-  # kernelY = np.array([0.3,0.4,0.3])
-  # img = cv2.sepFilter2D(img,-1,kernelX,kernelY)
-
-  # cv2.imshow('blur',img)
-  # cv2.waitKey(1)
-
-  # Convert to binary
-  max_value = 255
-  block_size = 5
-  const = 1
-  threshold_value = 100
-  _,img = cv2.threshold(img,threshold_value,max_value,cv2.THRESH_BINARY)
-
-  # cv2.imshow('binary',img)
-  # cv2.waitKey(1)
-
-  # Morph image to 'close' the shapes that are found
-  kernel = np.ones((2,2),np.uint8)
-  img = cv2.dilate(img,kernel,iterations = 1)
-  img = cv2.erode(img,kernel,iterations = 1)
-
-  #img2 = np.array(img)
-
-  # cv2.imshow('morph',img)
-  # cv2.waitKey(1)
-
-  # Find contours
-  #contours, _ = cv2.findContours(img,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
-  _, contours, _ = cv2.findContours(img,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
-
-  #img_temp = np.array(img)
-  #cv2.drawContours(img_temp, contours, -1, (255,255,255), 3)
-  #img3 = np.array(img_temp)
-  # cv2.imshow('draw contours',img_temp)
-  # cv2.waitKey(1)
-
-  # Extract centroids
-  centroids = []
-  centroids_dist = []
-  centroids_and_dist = []
-  all_centers = set([])
-  max_y,max_x = img.shape[:2]
-  edge_of_img_border = 5
-  nearby_restriction_value = 5
-  # print len(contours)
-  for single_contour in contours:
-    # For each contour, ensure that the area is greater than 1 pixel
-    area = cv2.contourArea(single_contour)
-    # print area
-    if True:#area > 0.01:
-      # Obtain the coordinates of the center of the contour
-      (x,y),_ = cv2.minEnclosingCircle(single_contour)
-      center = (int(x),int(y))
-      # print center
-      # If an overhead light is right on the edge of the image, then it will occasionally produce a false positive reading.
-      # Ignore points right on the edge of the image to get rid of this source of noise. Overhead lights that are elsewhere in 
-      # the image are taken care of by the blurring of the image.
-      on_edge_of_image = False
-      if center[0] < edge_of_img_border or center[1] < edge_of_img_border or center[0] > max_x-edge_of_img_border or center[1] > max_y-edge_of_img_border:
-        on_edge_of_image = True
-      if not on_edge_of_image:
-        # If we have already detected a point at a given coordinate, do not add it again. Since the center is cast to an integer, this
-        # step ensures that redundant points are not counted. e.g. (617.5,742.2) and (617.9,742.4) may be detected as separate points, but clearly
-        # they refer to the same point in the image and only one should be counted. 
-        if center not in all_centers:
-          all_centers.add(center)
-          # Add nearby-restriction so that we do not get redundant centroids
-          for i in range(-nearby_restriction_value,nearby_restriction_value + 1):
-            for j in range(-nearby_restriction_value,nearby_restriction_value + 1):
-              nearby_center = (center[0] + i,center[1] + j)
-              all_centers.add(nearby_center)
-          centroids.append((x + region_of_interest[0],y + region_of_interest[2]))
-
-  # img_temp = np.array(img)
-  # for cntr in centroids:
-    # center = (int(cntr[0]),int(cntr[1]))
-    # cv2.circle(img_temp, center, 3, 255, 3)
-  # cv2.imshow('obt init cntds',img_temp)
-  # cv2.waitKey(1)
-
-  # # Show entire process, with borders
-  # border      = 4
-  # img1        = cv2.copyMakeBorder(img1,border,border,border,border,cv2.BORDER_CONSTANT,value=255)
-  # img2        = cv2.copyMakeBorder(img2,border,border,border,border,cv2.BORDER_CONSTANT,value=255)
-  # img3        = cv2.copyMakeBorder(img3,border,border,border,border,cv2.BORDER_CONSTANT,value=255)
-  # img_to_show = np.vstack([np.asarray(img1), np.asarray(img2), np.asarray(img3)])
-  # cv2.imshow('Entire process',img_to_show)
-  # cv2.waitKey(0)
-  # cv2.imwrite('/home/draper/Desktop/temp.jpg',img_to_show)
-
-  # Return the centroids of the points found
-  return centroids
-
 def first_round_centroid_filter(centroids):
-  #def first_round_centroid_filter(centroids,img):
   '''
-  This function takes in an array of centroids and returns a similar array that has been filtered to remove erroneous values.
+  This function takes in a list of centroids and returns a similar list that has been filtered to remove suspected erroneous values. Filtering is performed by clustering x and y image coordinates, and then intersecting those clusters. 
   '''
 
   def one_sub_cluster_of_at_least_8(clstr):
@@ -268,9 +105,7 @@ def first_round_centroid_filter(centroids):
     k = k + k_step
     y_iter = y_iter + 1
 
-  # Since we specified that at least one of our clusters have at least 8 points, we need to find the x and y cluster_of_interest 
-  # that contains the 8 points. With a significant amount of noise, it is possible that we have more than one cluster with 8 points.
-  # Print an error if this happens.
+  # Since we specified that at least one of our clusters in both x and y have at least 8 points, we need to find the x and y cluster_of_interest that contains the 8 points. With a significant amount of noise, it is possible that we have more than one cluster with 8 points. Print a warning if this happens.
   x_cluster_of_interest = []
   y_cluster_of_interest = []
   for x in x_clstr:
@@ -291,7 +126,7 @@ def first_round_centroid_filter(centroids):
   x_cluster_of_interest = x_cluster_of_interest[0]
   y_cluster_of_interest = y_cluster_of_interest[0]
 
-  # Now that we have clustered by x and y coordinate, we need to take the intersection of these clusters, as this is likely our feature.
+  # Gather centroids of interest from clusters of interest
   x_centroids_of_interest = set([])
   for x_val in x_cluster_of_interest:
     indices = [i for i,x in enumerate(x_coords) if x == x_val]
@@ -307,29 +142,27 @@ def first_round_centroid_filter(centroids):
       centroid_to_add = (x_val,y_val)
       y_centroids_of_interest.add(centroid_to_add)
 
-  # print 'x cntds of intrst',len(x_centroids_of_interest)
-  # img_temp = np.array(img)
-  # for c in x_centroids_of_interest:
-  #   pt = (int(c[0]),int(c[1]))
-  #   cv2.circle(img_temp, pt, 3, [0, 0, 255], 5)
-  # cv2.imshow('x c o i',img_temp)
-  # print 'y cntds of intrst',len(y_centroids_of_interest)
-  # img_temp = np.array(img)
-  # for c in y_centroids_of_interest:
-  #   pt = (int(c[0]),int(c[1]))
-  #   cv2.circle(img_temp, pt, 3, [0, 0, 255], 5)
-  # cv2.imshow('y c o i',img_temp)
-  # cv2.waitKey(0)
+  if self._show_images:
+    img_xcoi = np.array(img)
+    for c in x_centroids_of_interest:
+      pt = (int(c[0]),int(c[1]))
+      cv2.circle(img_xcoi, pt, 3, [0, 0, 255], 5)
+    img_ycoi = np.array(img)
+    for c in y_centroids_of_interest:
+      pt = (int(c[0]),int(c[1]))
+      cv2.circle(img_ycoi, pt, 3, [0, 0, 255], 5)
+    img_to_show = np.hstack([np.asarray(img_xcoi), np.asarray(img_ycoi)])
+    cv2.imshow('centroids of interest (x left, yright)',img_to_show)
+    cv2.waitKey(1)
 
+  # Now that we have clustered by x and y centroids, we need to take the intersection of these clusters, as this is likely our feature.
   centroids_of_interest = [c for c in y_centroids_of_interest if c in x_centroids_of_interest]
 
+  # Attempt to recover grouping in the case where there are not 8 centroids shared by the x and y clusters.
   if len(centroids_of_interest) < 8 and len(centroids_of_interest) > 0:
-    # Here we have the case where the number of centroids shared by x and y clusters is less than the number
-    # of feature points. This means that the x and y clusters are being thrown off by false positive measurements.
-    # At this point, we must decide which 8 points are to be identified as the correct centroids.
+    # Here we have the case where the number of centroids shared by x and y clusters is less than the number of feature points. This means that the x and y clusters are being thrown off by false positive measurements. At this point, we must decide which 8 points are the correct centroids.
 
-    # First, we take the points that are shared by the x and y clusters. We calculate the average position of these
-    # points and use distance to this average position as a metric for choosing the remaining correct centroids.
+    # First, we take the points that are shared by the x and y clusters. We calculate the average position of these points and use distance to this average position as a metric for choosing the remaining correct centroids.
     avg_pos_x = 0
     avg_pos_y = 0
     for c in centroids_of_interest:
@@ -346,21 +179,13 @@ def first_round_centroid_filter(centroids):
     dist_to_avg_pos_mean = np.mean(dist_to_avg_pos)
     dist_to_avg_pos_std = np.std(dist_to_avg_pos)
 
-    # Now that we have the average position of the accepted centroids, we must query the remaining centroids
-    # for those that are nearest to this average position. 
+    # Now that we have the average position of the accepted centroids, we must query the remaining centroids for those that are nearest to this average position. 
     remaining_centroids = [c for c in centroids if c not in centroids_of_interest]
 
     selected_centroids = []
     for c in remaining_centroids:
       if np.absolute(dist(c,avg_pos) - dist_to_avg_pos_mean) < 5*dist_to_avg_pos_std:
         selected_centroids.append(c)
-
-    # img_temp = np.array(img)
-    # for c in selected_centroids:
-    #   pt = (int(c[0]),int(c[1]))
-    #   cv2.circle(img_temp, pt, 3, [0, 0, 255], 5)
-    # cv2.imshow('selected centroids',img_temp)
-    # cv2.waitKey(1)
 
     for c in selected_centroids:
       centroids_of_interest.append(c)
@@ -369,10 +194,9 @@ def first_round_centroid_filter(centroids):
 
 def second_round_centroid_filter(centroids):
   '''
-  This function 
+  This function takes in a list of centroids and returns a similar list that has been filtered to remove suspected erroneous values. Filtering is performed by clustering according to pairwise slope value. 
   '''
 
-  # return centroids
   def at_least_one_cluster_of_at_least_12(clstr):
     for c in clstr:
       if len(c) >= 12:
@@ -422,7 +246,7 @@ def second_round_centroid_filter(centroids):
     if len(c) >= 12:
       slopes_of_interest = c
 
-  # Report an error if we do not detect a slope cluster with only 12 points
+  # Report an error if we do not detect a slope cluster with at least 12 points
   if slopes_of_interest is None:
     print text_colors.WARNING + 'Warning: Invalid slope clusters.' + text_colors.ENDCOLOR
     return []
@@ -443,11 +267,14 @@ def second_round_centroid_filter(centroids):
   return list(points)
 
 def assign_points2(centroids):
-  #def assign_points2(centroids,img):
+  '''
+  This function takes in a list of centroids and attempts to assign each of them to a corresponding real-world feature point. To do so, it finds the two subsets of four centroids with the lowest residual after a linear fit. The feature is two lines of four points, so there should be two subsets with relatively low residuals.
+  '''
 
   subsets = combinations(centroids,4)
   rows = []
   k = 0
+  # Find the first subset of 4 with low residual
   for s in subsets:
     if len(rows) < 1:
       x = [p[0] for p in s]
@@ -457,17 +284,15 @@ def assign_points2(centroids):
         rows.append(list(s))
       k = k + 1
 
+  # If we didn't find any subsets with a low enough residual, return empty assignments
   if len(rows) < 1:
     return [[0],[0]]
 
-  # Now that we have assigned one row, we can deduce the other row. Subtract the chosen 
-  # row from the list of centroids. The remaining 4 points are the other row. 
+  # Now that we have assigned one row, we can deduce the other row. Subtract the chosen row from the list of centroids. The remaining 4 points are the other row. 
   other_row = [x for x in centroids if x not in rows[0]]
   rows.append(list(other_row))
 
-  # Now we have both rows, so we must decide which is the top row and which is the 
-  # bottom row. First, sort each row so that the points in each row are organized
-  # from right to left in the image.
+  # Now we have both rows, so we must decide which is the top row and which is the bottom. First, sort each row so that the points in each row are organized from right to left in the image.
   for r in rows:
     r.sort(key=lambda x: x[0])
 
@@ -479,57 +304,22 @@ def assign_points2(centroids):
     top_row    = rows[1]
     bottom_row = rows[0]
 
-  # img_temp = np.array(img)
-  # for c in top_row:
-  #   pt = (int(c[0]),int(c[1]))
-  #   cv2.circle(img_temp, pt, 3, 255, 2)
-  # for c in bottom_row:
-  #   pt = (int(c[0]),int(c[1]))
-  #   cv2.circle(img_temp, pt, 3, 255, 1)
-  # cv2.imshow('top is thicker - rows',img_temp)
-  # cv2.waitKey(0)
+  if self._show_images:
+    img_temp = np.array(img)
+    for c in top_row:
+      pt = (int(c[0]),int(c[1]))
+      cv2.circle(img_temp, pt, 3, 255, 2)
+    for c in bottom_row:
+      pt = (int(c[0]),int(c[1]))
+      cv2.circle(img_temp, pt, 3, 255, 1)
+    cv2.imshow('row assignments (top is thicker)', img_temp)
+    cv2.waitKey(1)
   
   return [bottom_row,top_row]
 
 def feature_extraction(img_cv,prev_solution, mtx, distortion):
-  debug_flag = False
-  profiler_on = False
-
-  if profiler_on:
-    # Start the profiler (if desired)
-    pr = cProfile.Profile()
-    pr.enable()
 
   img = img_cv
-
-  # img_temp = np.array(img_cv)
-  # cv2.imshow('original',img_temp)
-  # cv2.waitKey(1)
-
-
-
-  #----------------------------------------------------------------------------#
-
-  # Filter the Image to Obtain centroids of Green Contours
-
-  #----------------------------------------------------------------------------#
-  prev_sol_exists = prev_solution[-1]
-
-  if prev_sol_exists:
-    centroids = obtain_initial_centroids(img,prev_solution)
-    if len(centroids) < 8:
-      centroids = obtain_initial_centroids(img)
-  else:
-    centroids = obtain_initial_centroids(img)
-
-  # print 'initial',len(centroids)
-  # img_temp = np.array(img_cv)
-  # for c in centroids:
-  #   pt = (int(c[0]),int(c[1]))
-  #   cv2.circle(img_temp, pt, 3, 255, 1)
-  # cv2.imshow('initial',img_temp)
-  # cv2.waitKey(1)
-  # img_to_show1 = img_temp
   
   if len(centroids) < 8:
     print text_colors.FAIL + "Failure: Too few centroids after initial selection." + text_colors.ENDCOLOR
