@@ -2,7 +2,7 @@
 <launch>
 
   <!-- Launch the PointGrey camera driver via the PointGrey launch file -->
-  <include file="$(find pointgrey_camera_driver)/launch/camera.launch" /> 
+  <include file="$(find pointgrey_camera_driver)/launch/my_camera.launch" /> 
 
   <!-- Load camera settings for calibration -->
   <rosparam command="load" file="$(find creare)/params/camera_setup.yaml"/>
