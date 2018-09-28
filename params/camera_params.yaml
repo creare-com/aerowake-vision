@@ -1,11 +1,11 @@
 camera:
   camera_nodelet:
     frame_rate: 15
-    auto_exposure: 1#False
+    auto_exposure: False
     exposure: -7.58496 # -7.58496 is minimum
-    shutter_speed: 0.00005 # 0.005
-    auto_shutter: 1#False
-    auto_gain: 1#False
+    shutter_speed: 0.0005 # 0.005
+    auto_shutter: False
+    auto_gain: False
     gain: -10 # -2.5 # -10 to 10
 
 # Fence Settings 4
