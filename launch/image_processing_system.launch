@@ -1,14 +1,12 @@
-<!-- Launch tag so that file is identified as a launch file -->
 <launch>
 
-  <!-- Load camera parameters from file -->
-  <rosparam command="load" file="$(find creare)/params/camera_params.yaml"/>
-  <param name="/camera/camera_info_url" type="string" value="file://$(find creare)/params/cam_calib.yaml" />
+  <!-- Start the contour finder node -->
+  <node pkg="creare" name="contour_finder" type="contour_finder.py" output="screen" />
 
-  <!-- Start the image processing node -->
-  <node pkg="creare" name="image_processing_node" type="image_processing_mono.py" output="screen">
-    <!-- <remap from="rectified_image" to="/camera/image_color"/> -->
-    <remap from="rectified_image" to="/camera/image_raw"/>
-  </node>
+  <!-- Start the feature extractor node -->
+  <!-- <node pkg="creare" name="feature_extractor" type="feature_extractor.py" output="screen" /> -->
+
+  <!-- Start the pnp solver node -->
+  <!-- <node pkg="creare" name="pnp_solver" type="pnp_solver.py" output="screen" /> -->
 
 </launch>
