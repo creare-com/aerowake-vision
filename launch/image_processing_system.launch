@@ -1,7 +1,7 @@
 <launch>
 
   <!-- Start the contour finder node -->
-  <node pkg="creare" name="contour_finder" type="contour_finder.py" output="screen" />
+  <node pkg="creare" name="centroid_finder" type="centroid_finder.py" output="screen" />
 
   <!-- Start the feature extractor node -->
   <!-- <node pkg="creare" name="feature_extractor" type="feature_extractor.py" output="screen" /> -->

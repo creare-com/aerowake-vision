@@ -1,22 +1,11 @@
 #!/usr/bin/env python
 
-# Set camera parameters in camera_params.yaml
-
 import rospy
 import numpy as np
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
-from sensor_msgs.msg import Image, CameraInfo
-from std_msgs.msg import String, Float32MultiArray
-from itertools import combinations
-import cProfile, pstats, StringIO
-from creare.msg import Centroids, FeaturePoints, SolutionBounds
-
-#------------------------------------------------------------------------------#
-
-# Helper Functions
-
-#------------------------------------------------------------------------------#
+from sensor_msgs.msg import Image
+from creare.msg import Centroids, SolutionBounds
 
 class text_colors:
   '''
@@ -52,8 +41,19 @@ class ImageProcessor(object):
     self.sub_img_raw = rospy.Subscriber("/camera/image_raw",Image,self.cbImgRaw)
     self.sub_prev_sol_bounds = rospy.Subscriber("/prev_solution_bounds",SolutionBounds,self.cbPrevSolBounds)
 
+  def rectify(self):
+    # Undistortion and cropping
+    h,w = self._img.shape[:2]
+    mtx_new,roi = cv2.getOptimalNewCameraMatrix(mtx,distortion,(w,h),1,(w,h))
+    img_axes = cv2.undistort(img_axes,mtx,distortion,None,mtx_new)
+    x,y,w,h = roi
+    img_axes = img_axes[y:y+h, x:x+w]    
+
   def cbPrevSolBounds(self,data):
-    # If the previous solution exists, use it to set a region of interest for truncated search space
+    '''
+    This callback truncates the search space if a previous solution exists.
+    '''
+
     if data.sol_exists:
       # Define the boundaries of the region of interest
       buff = 150
@@ -63,6 +63,10 @@ class ImageProcessor(object):
       self._roi = [0, 0, 0, 0, False]
 
   def cbImgRaw(self,data):
+    '''
+    This callback finds and publishes all contours in an image.
+    '''
+
     # Convert the ROS image to an OpenCV image
     try:
       self._img = self._bridge.imgmsg_to_cv2(data, '8UC1')
@@ -70,8 +74,11 @@ class ImageProcessor(object):
       print text_colors.WARNING + 'Warning: Image converted unsuccessfully before processing.' + text_colors.ENDCOLOR
 
     # Remove the edge of the image since there are erroneous pixels in the top left of the image (some sort of image conversion error perhaps?)
-    edge_buffer = 1
-    self._img = self._img[edge_buffer:self._img.shape[0] - edge_buffer, edge_buffer:self._img.shape[1] - edge_buffer]
+    buff = 1
+    self._img = self._img[buff:self._img.shape[0] - buff, buff:self._img.shape[1] - buff]
+
+    # Rectify the image before finding contours
+    self._img = rectify(self._img)
 
     # Find centroids and reshape for ROS publishing
     centroids = self.obtain_initial_centroids()
@@ -84,6 +91,12 @@ class ImageProcessor(object):
     self.pub_initial_contours.publish(centroids)
 
   def obtain_initial_centroids(self):
+    '''
+    This function processes the image and returns the centroid location in image coordinates of all contours.
+
+    IMAGE MUST BE RECTIFIED BEFORE THIS STEP
+    '''
+    
     # If a valid previous solution exists, truncate image search space
     if self._roi[-1]:
       # Ensure none of region of interest boundaries are outside of image
@@ -151,21 +164,16 @@ class ImageProcessor(object):
       # Obtain the coordinates of the center of the contour
       (x,y),_ = cv2.minEnclosingCircle(c)
       center = (int(x),int(y))
-      # # Ignore points right on the edge of the image since image edges are hotbeds for false readings
-      # on_edge_of_image = False
-      # if center[0] < edge_of_img_border or center[1] < edge_of_img_border or center[0] > max_x-edge_of_img_border or center[1] > max_y-edge_of_img_border:
-      #   on_edge_of_image = True
-      if True: #not on_edge_of_image:
-        # If we have already detected a point at a given coordinate, do not add it again. 
-        if center not in all_centers:
-          all_centers.add(center)
-          # Add nearby buffer so that we do not get redundant centroids
-          for i in range(-near_buff,near_buff + 1):
-            for j in range(-near_buff,near_buff + 1):
-              nearby_center = (center[0] + i,center[1] + j)
-              all_centers.add(nearby_center)
-          # Add the centroid to the collective list. Region of interest is added here since a truncated image will be offset by the amount of truncation.
-          centroids.append((x + self._roi[0], y + self._roi[2]))
+      # If we have already detected a point at (or very near) a given coordinate, do not add it again. 
+      if center not in all_centers:
+        all_centers.add(center)
+        # Add nearby buffer so that we do not get redundant centroids
+        for i in range(-near_buff,near_buff + 1):
+          for j in range(-near_buff,near_buff + 1):
+            nearby_center = (center[0] + i,center[1] + j)
+            all_centers.add(nearby_center)
+        # Add the centroid to the collective list. Region of interest is added here since a truncated image will be offset by the amount of truncation.
+        centroids.append((x + self._roi[0], y + self._roi[2]))
 
     if self._show_images:
       img_temp = np.array(self._img)
@@ -180,7 +188,7 @@ class ImageProcessor(object):
 
 if __name__ == "__main__":
   # Initialize the node
-  rospy.init_node('feature_extractor')
+  rospy.init_node('centroid_finder')
 
   # Create the node
   node = ImageProcessor(show_images = False)
