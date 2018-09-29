@@ -192,7 +192,7 @@ if __name__ == "__main__":
   rospy.init_node('centroid_finder')
 
   # Create the node
-  node = CentroidFinder(show_images = True)
+  node = CentroidFinder(show_images = False)
 
   # Spin
   rospy.spin()
