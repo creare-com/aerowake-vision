@@ -92,7 +92,7 @@ def pose_extraction(centroids, use_prev_solution, prev_rvecs, prev_tvecs, mtx, d
   total_points_assigned = len(assigned_points[0]) + len(assigned_points[1])
   if not total_points_assigned == 8:
     print text_colors.FAIL + "Failure: Failure to assign points correctly." + text_colors.ENDCOLOR
-    return None
+    return (False,None,None,None,None)
 
   # Calculate pose. First, define object points. The units used here, [cm], will determine the units of the output. These are the relative positions of the beacons in NED GCS-frame coordinates (aft, port, down).
   objp = np.zeros((8,1,3), np.float32)
@@ -174,16 +174,22 @@ class PnPSolver(object):
     centroids = centroids.reshape(len(centroids)/2,2)
 
     self._prev_sol_exists, position, orientation, self._prev_rvecs,self._prev_tvecs = pose_extraction(centroids, self._prev_sol_exists, self._prev_rvecs, self._prev_tvecs, self._mtx, self._distortion)
-    
+
+
     # Publish the position data
     pose = PoseEstimate()
-    pose.orientation = orientation
-    pose.position = position
+    if position is None:
+      # We failed to find a solution. Act accordingly. 
+      pose.orientation = [-1]
+      pose.position = [-1]
+    else:
+      pose.orientation = orientation
+      pose.position = position
     self._pub_pose.publish(pose)
 
     # Publish previous solution bounds
 
-    raise Exception('NEED TO WRITE ORIENTATION TRANSFORM TO VICON SPACE AND ALSO SET PREVIOUS SOLUTION BOUNDS')
+    # raise Exception('NEED TO WRITE ORIENTATION TRANSFORM TO VICON SPACE AND ALSO SET PREVIOUS SOLUTION BOUNDS')
 
 if __name__ == "__main__":
   # Initialize the node
