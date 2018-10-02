@@ -233,8 +233,8 @@ def second_round_centroid_filter(centroids):
   # Create a set of all of the points in our slope cluster so we have no duplicates.
   points = set([])
   for i in range(0,len(slopes_and_points)):
-    pt0 = slopes_and_points[i][1]
-    pt1 = slopes_and_points[i][2]
+    pt0 = tuple(slopes_and_points[i][1])
+    pt1 = tuple(slopes_and_points[i][2])
     points.add(pt0)
     points.add(pt1)
 
