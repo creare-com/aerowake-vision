@@ -47,9 +47,6 @@ add_message_files(
   DIRECTORY
   msg
   FILES
-  SolutionBounds.msg
-  Centroids.msg
-  PoseEstimate.msg
 )
 
 ## Generate services in the 'srv' folder
