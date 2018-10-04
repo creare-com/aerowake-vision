@@ -106,7 +106,7 @@ class CentroidFinder(object):
     max_value = 255
     block_size = 5
     const = 1
-    threshold_value = 10
+    threshold_value = 175
     _,self._img = cv2.threshold(self._img,threshold_value,max_value,cv2.THRESH_BINARY)
 
     if self._show_images:
@@ -175,7 +175,7 @@ class NoiseFilter(object):
     if len(centroids) < 8:
       if self._debug:
         print text_colors.FAIL + "Failure: Too few centroids after initial selection." + text_colors.ENDCOLOR
-      return ()
+      return (), self._img
 
     # We expect 8 feature points. Filter to remove any extras.
     if len(centroids) > 8:
@@ -192,7 +192,7 @@ class NoiseFilter(object):
     if len(centroids) < 8:
       if self._debug:
         print text_colors.FAIL + "Failure: Too few centroids after filtering." + text_colors.ENDCOLOR
-      return ()
+      return (), self._img
 
     for c in centroids:
       center = (int(c[0]),int(c[1]))
@@ -573,7 +573,7 @@ class PnPSolver(object):
 
       # Calculate orientation and position
       position = Rinv*(Kinv*Pc-T)
-      position = tuple([float(val) for val in position])
+      position = tuple([round(float(val),5) for val in position])
       orientation = None # TODO: calculate orientation correctly
 
       if self._debug:
