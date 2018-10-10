@@ -37,7 +37,7 @@ def status(length, percent):
 if __name__ == "__main__":
 
   # Set global variables
-  flag_show_images = False
+  flag_show_images = True
   flag_show_debug_images = False
   flag_show_debug_messages = False
   bagpath = sys.argv[1]
@@ -48,7 +48,7 @@ if __name__ == "__main__":
   poses = ['time[s.ns],x[m],y[m],z[m]\n']
   des_start = 0
   if len(sys.argv) > 2:
-    des_start = int(sys.argv[2])    
+    des_start = int(sys.argv[2])
 
   # Get camera info and rosbag start time
   with rosbag.Bag(bagpath) as bag:
@@ -64,7 +64,9 @@ if __name__ == "__main__":
   # Create processing objects
   cfinder = CentroidFinder(flag_show_debug_images,flag_show_debug_messages)
   nfilter = NoiseFilter(flag_show_debug_images,flag_show_debug_messages)
-  psolver = PnPSolver(mtx, dist, flag_show_debug_images,flag_show_debug_messages)
+  # We rectify the image before finding centroids, so the points passed to the PnPSolver do not have any distortion. Set the distortion matrix for the PnPSolver to zero. 
+  pnp_dist = 0
+  psolver = PnPSolver(mtx, pnp_dist, flag_show_debug_images,flag_show_debug_messages)
 
   # Set variables to determine progress
   info_dict = yaml.load(subprocess.Popen(['rosbag', 'info', '--yaml', bagpath], stdout=subprocess.PIPE).communicate()[0])
