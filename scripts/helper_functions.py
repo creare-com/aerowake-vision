@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import cv2
+import math
 import numpy as np
 
 from cv_bridge import CvBridge, CvBridgeError
@@ -45,7 +46,7 @@ def convert_image(msg, mtx, dist, flag = False):
 
   return img
 
-def show_image(title, img, flag = True, duration = 1):
+def show_image(title, img, flag = True, duration = 0):
   '''
   Uses cv2.imshow() to display an image to the screen.
 
@@ -56,6 +57,14 @@ def show_image(title, img, flag = True, duration = 1):
   if flag:
     cv2.imshow(title,img)
     cv2.waitKey(duration)
+
+def draw_axes(img, corners, imgpts):
+    img_deep_copy = np.array(img)
+    corner = tuple(corners[0].ravel())
+    cv2.line(img_deep_copy,corner,tuple(imgpts[0].ravel()),85,3)
+    cv2.line(img_deep_copy,corner,tuple(imgpts[1].ravel()),170,3)
+    cv2.line(img_deep_copy,corner,tuple(imgpts[2].ravel()),255,3)
+    return img_deep_copy
 
 def rectify(img, mtx, dist):
   # Undistortion
@@ -175,7 +184,7 @@ class NoiseFilter(object):
     if len(centroids) < 8:
       if self._debug:
         print text_colors.FAIL + "Failure: Too few centroids after initial selection." + text_colors.ENDCOLOR
-      return ()
+      return (), self._img
 
     # We expect 8 feature points. Filter to remove any extras.
     if len(centroids) > 8:
@@ -192,7 +201,7 @@ class NoiseFilter(object):
     if len(centroids) < 8:
       if self._debug:
         print text_colors.FAIL + "Failure: Too few centroids after filtering." + text_colors.ENDCOLOR
-      return ()
+      return (), self._img
 
     for c in centroids:
       center = (int(c[0]),int(c[1]))
@@ -525,20 +534,35 @@ class PnPSolver(object):
 
     # Calculate pose. First, define object points. The units used here, [cm], will determine the units of the output. These are the relative positions of the beacons in NED GCS-frame coordinates (aft, port, down).
     objp = np.zeros((8,1,3), np.float32)
-    # Currently set to vicon feature
-    row_aft = [0,-0.802] # [m]
-    row_port = [[0.0, -0.161, -0.318, -0.476],[0.0, -0.159, -0.318, -0.472]]
-    row_down = [0,-0.256] # [m]
+
+    # # Currently set to vicon feature
+    # row_aft = [0,-0.802] # [m]
+    # row_port = [[0.0, -0.161, -0.318, -0.476],[0.0, -0.159, -0.318, -0.472]] # [m]
+    # row_down = [0,-0.256] # [m]
+    # # Lower row of beacons
+    # objp[0] = [ row_aft[0], row_port[0][0], row_down[0]]
+    # objp[1] = [ row_aft[0], row_port[0][1], row_down[0]]
+    # objp[2] = [ row_aft[0], row_port[0][2], row_down[0]]
+    # objp[3] = [ row_aft[0], row_port[0][3], row_down[0]]
+    # # Upper row of beacons
+    # objp[4] = [ row_aft[1], row_port[1][0], row_down[1]]
+    # objp[5] = [ row_aft[1], row_port[1][1], row_down[1]]
+    # objp[6] = [ row_aft[1], row_port[1][2], row_down[1]]
+    # objp[7] = [ row_aft[1], row_port[1][3], row_down[1]]
+
+    row_x = [0, -0.802]
+    row_y = [[0.0, 0.161, 0.318, 0.476],[0.0, 0.159, 0.318, 0.472]]
+    row_z = [0,0.256]
     # Lower row of beacons
-    objp[0] = [ row_aft[0], row_port[0][0], row_down[0]]
-    objp[1] = [ row_aft[0], row_port[0][1], row_down[0]]
-    objp[2] = [ row_aft[0], row_port[0][2], row_down[0]]
-    objp[3] = [ row_aft[0], row_port[0][3], row_down[0]]
+    objp[0] = [ row_x[0], row_y[0][0], row_z[0]]
+    objp[1] = [ row_x[0], row_y[0][1], row_z[0]]
+    objp[2] = [ row_x[0], row_y[0][2], row_z[0]]
+    objp[3] = [ row_x[0], row_y[0][3], row_z[0]]
     # Upper row of beacons
-    objp[4] = [ row_aft[1], row_port[1][0], row_down[1]]
-    objp[5] = [ row_aft[1], row_port[1][1], row_down[1]]
-    objp[6] = [ row_aft[1], row_port[1][2], row_down[1]]
-    objp[7] = [ row_aft[1], row_port[1][3], row_down[1]]
+    objp[4] = [ row_x[1], row_y[1][0], row_z[1]]
+    objp[5] = [ row_x[1], row_y[1][1], row_z[1]]
+    objp[6] = [ row_x[1], row_y[1][2], row_z[1]]
+    objp[7] = [ row_x[1], row_y[1][3], row_z[1]]
 
     # Define feature points by the correspondences determined above. The bottom row (assigned_points[0]) corresponds to the lower row of beacons, and the top row (assigned_points[1]) corresponds to the upper row. Each row in assigned_points is arranged with the leftmost point in the image in the first index, and so on. 
     feature_points = np.zeros((8,1,2), np.float32)
@@ -574,7 +598,15 @@ class PnPSolver(object):
       # Calculate orientation and position
       position = Rinv*(Kinv*Pc-T)
       position = tuple([float(val) for val in position])
-      orientation = None # TODO: calculate orientation correctly
+      orientation = self._rotationMatrixToEulerAngles(R)
+
+      print '\n',orientation,'\n'
+
+      # Draw axes on image
+      axis_len = 0.16 # [m]
+      axis = np.float32([[axis_len,0,0], [0,axis_len,0], [0,0,axis_len]]).reshape(-1,3)
+      imgpts,jac = cv2.projectPoints(axis,rvecs,tvecs,self._mtx,self._dist)
+      self._img = draw_axes(self._img,feature_points,imgpts)
 
       if self._debug:
         print text_colors.OKGREEN + "Success." + text_colors.ENDCOLOR
@@ -587,3 +619,32 @@ class PnPSolver(object):
 
     # Return the obtained pose, rvecs, and tvecs
     return position, orientation
+
+  def _isRotationMatrix(self, R):
+    '''
+    Checks if a matrix is a valid rotation matrix.
+    '''
+    Rt = np.transpose(R)
+    shouldBeIdentity = np.dot(Rt, R)
+    I = np.identity(3, dtype = R.dtype)
+    n = np.linalg.norm(I - shouldBeIdentity)
+    return n < 1e-6
+  
+  def _rotationMatrixToEulerAngles(self, R):
+    '''
+    Calculates rotation matrix to euler angles. The result is the same as MATLAB except the order of the euler angles (x and z are swapped).
+    '''
+    assert(self._isRotationMatrix(R))
+    sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
+    singular = sy < 1e-6
+    if  not singular :
+        x = math.atan2(R[2,1] , R[2,2])
+        y = math.atan2(-R[2,0], sy)
+        z = math.atan2(R[1,0], R[0,0])
+    else :
+        x = math.atan2(-R[1,2], R[1,1])
+        y = math.atan2(-R[2,0], sy)
+        z = 0
+    angles_rad = np.array([x, y, z])
+    angles_deg = np.array([elm*180/np.pi for elm in angles_rad])
+    return angles_deg
