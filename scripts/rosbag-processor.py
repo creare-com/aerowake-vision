@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import genpy.rostime
+import imutils
 import numpy as np
 import rosbag
 import subprocess
@@ -9,7 +10,7 @@ import time
 import yaml
 
 from helper_functions import CentroidFinder, NoiseFilter, PnPSolver
-from helper_functions import convert_image, show_image
+from helper_functions import convert_image, rectify, show_image
 
 class Timer(object):
   def __init__(self, name=None):
@@ -61,6 +62,9 @@ if __name__ == "__main__":
         dist = np.array(msg.D)
         break
 
+  # mtx = np.array([[1117.275487044934, 0, 1036.699184734313], [0, 1118.003077780998, 714.3800977413584], [0, 0, 1]])
+  # dist = np.array([-0.2729255535730914, 0.05357722019509045, 0.001586550075414054, -0.001402189204722048, 0])
+
   # Create processing objects
   cfinder = CentroidFinder(flag_show_debug_images,flag_show_debug_messages)
   nfilter = NoiseFilter(flag_show_debug_images,flag_show_debug_messages)
@@ -87,8 +91,17 @@ if __name__ == "__main__":
           if topic == '/camera/image_raw':
 
             # Convert ROS message to OpenCV image
-            img = convert_image(msg, mtx, dist, flag = flag_show_debug_images)
+            img = convert_image(msg, flag = flag_show_debug_images)
             show_image('original', img, flag = flag_show_images)
+
+            # Rotate image if using Yellow Hex
+            if False:
+              img = imutils.rotate(img, 270)
+              show_image('rotated', img, flag = flag_show_images)
+
+            # Rectify image
+            img = rectify(img, mtx, dist)
+            show_image('rectified', img, flag = flag_show_images)
 
             # Find initial centroids
             centroids, img_cent = cfinder.get_centroids(img)
@@ -100,7 +113,7 @@ if __name__ == "__main__":
 
             # Solve for pose
             position, orientation, img_solv = psolver.solve_pnp(img, filtered)
-            show_image('found feature', img_solv, flag = flag_show_images)
+            show_image('found feature', img_solv, duration = 0, flag = flag_show_images)
 
             # Save pose with bag time to list
             x,y,z = position
