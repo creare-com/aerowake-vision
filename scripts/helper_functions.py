@@ -25,7 +25,7 @@ class text_colors:
   UNDERLINE = '\033[4m'
 
 # Image Processing Functions
-def convert_image(msg, mtx, dist, flag = False):
+def convert_image(msg, flag = False):
   '''
   Converts ROS image to OpenCV image, then blocks out errant pixels and rectifies.
   '''
@@ -40,13 +40,9 @@ def convert_image(msg, mtx, dist, flag = False):
   cv2.rectangle(img, (0,0), (30,1), 0, cv2.cv.CV_FILLED)
   show_image('blacked out', img, flag)
 
-  # Rectify image
-  img = rectify(img, mtx, dist)
-  show_image('rectified', img, flag)
-
   return img
 
-def show_image(title, img, flag = True, duration = 0):
+def show_image(title, img, flag = True, duration = 1):
   '''
   Uses cv2.imshow() to display an image to the screen.
 
@@ -61,9 +57,9 @@ def show_image(title, img, flag = True, duration = 0):
 def draw_axes(img, corners, imgpts):
     img_deep_copy = np.array(img)
     corner = tuple(corners[0].ravel())
-    cv2.line(img_deep_copy,corner,tuple(imgpts[0].ravel()),85,3)
-    cv2.line(img_deep_copy,corner,tuple(imgpts[1].ravel()),170,3)
-    cv2.line(img_deep_copy,corner,tuple(imgpts[2].ravel()),255,3)
+    cv2.line(img_deep_copy,corner,tuple(imgpts[0].ravel()),150,3)
+    cv2.line(img_deep_copy,corner,tuple(imgpts[1].ravel()),200,3)
+    cv2.line(img_deep_copy,corner,tuple(imgpts[2].ravel()),250,3)
     return img_deep_copy
 
 def rectify(img, mtx, dist):
@@ -433,6 +429,7 @@ class PnPSolver(object):
     self._debug = flag_debug
     self._mtx = mtx
     self._dist = dist
+    self._print_feature_name = True
     self._img = None
     self._rvecs = None
     self._tvecs = None
@@ -452,13 +449,6 @@ class PnPSolver(object):
       if self._debug:
         print text_colors.FAIL + "Failure: Failure to assign points correctly." + text_colors.ENDCOLOR
       return (None,None,None), None, self._img
-
-    i = 0
-    for row in assigned_rows:
-      i += 1
-      for c in row:
-        center = (int(c[0]),int(c[1]))
-        cv2.circle(self._img, center, 3, 255.0/i, 3)
 
     # Extract pose
     position, orientation = self._pose_extraction(assigned_rows)
@@ -535,7 +525,10 @@ class PnPSolver(object):
     # Calculate pose. First, define object points. The units used here, [cm], will determine the units of the output. These are the relative positions of the beacons in NED GCS-frame coordinates (aft, port, down).
     objp = np.zeros((8,1,3), np.float32)
 
-    # # Currently set to vicon feature
+    # # VICON FEATURE
+    # if self._print_feature_name:
+    #   print text_colors.OKGREEN + "Using vicon feature" + text_colors.ENDCOLOR
+    #   self._print_feature_name = False
     # row_aft = [0,-0.802] # [m]
     # row_port = [[0.0, -0.161, -0.318, -0.476],[0.0, -0.159, -0.318, -0.472]] # [m]
     # row_down = [0,-0.256] # [m]
@@ -550,6 +543,10 @@ class PnPSolver(object):
     # objp[6] = [ row_aft[1], row_port[1][2], row_down[1]]
     # objp[7] = [ row_aft[1], row_port[1][3], row_down[1]]
 
+    # ORIENTATION TEST VICON FEATURE
+    if self._print_feature_name:
+      print text_colors.OKGREEN + "Using orientation test vicon feature" + text_colors.ENDCOLOR
+      self._print_feature_name = False
     row_x = [0, -0.802]
     row_y = [[0.0, 0.161, 0.318, 0.476],[0.0, 0.159, 0.318, 0.472]]
     row_z = [0,0.256]
@@ -564,7 +561,25 @@ class PnPSolver(object):
     objp[6] = [ row_x[1], row_y[1][2], row_z[1]]
     objp[7] = [ row_x[1], row_y[1][3], row_z[1]]
 
-    # Define feature points by the correspondences determined above. The bottom row (assigned_points[0]) corresponds to the lower row of beacons, and the top row (assigned_points[1]) corresponds to the upper row. Each row in assigned_points is arranged with the leftmost point in the image in the first index, and so on. 
+    # # TRAILER FEATURE
+    # if self._print_feature_name:
+    #   print text_colors.OKGREEN + "Using trailer feature" + text_colors.ENDCOLOR
+    #   self._print_feature_name = False
+    # row_aft = [0,-1.397] # [m]
+    # row_port = [[0.297, 0.895, 1.495, 2.099],[0.3, 0.899, 1.498, 2.099]] # [m]
+    # row_down = [0,1.22] # [m]
+    # # Lower row of beacons
+    # objp[0] = [ row_aft[0], row_port[0][0], row_down[0]]
+    # objp[1] = [ row_aft[0], row_port[0][1], row_down[0]]
+    # objp[2] = [ row_aft[0], row_port[0][2], row_down[0]]
+    # objp[3] = [ row_aft[0], row_port[0][3], row_down[0]]
+    # # Upper row of beacons
+    # objp[4] = [ row_aft[1], row_port[1][0], row_down[1]]
+    # objp[5] = [ row_aft[1], row_port[1][1], row_down[1]]
+    # objp[6] = [ row_aft[1], row_port[1][2], row_down[1]]
+    # objp[7] = [ row_aft[1], row_port[1][3], row_down[1]]
+
+    # Define feature points by the correspondences determined above. The bottom row corresponds to the lower row of beacons, and the top row corresponds to the upper row. Each row in is arranged with the leftmost point in the image in the first index, and so on. 
     feature_points = np.zeros((8,1,2), np.float32)
     # Lowermost Subset
     feature_points[0] = bottom_row[0]
@@ -583,9 +598,23 @@ class PnPSolver(object):
       use_prev_solution = False
     flag_success,rvecs,tvecs = cv2.solvePnP(objp,feature_points,self._mtx,self._dist,self._rvecs,self._tvecs,use_prev_solution,cv2.CV_ITERATIVE)
 
+    # Draw top and bottom rows in order
+    k = 0
+    for i in range(0,len(bottom_row)):
+      k = k + 1
+      c = bottom_row[i]
+      center = (int(c[0]),int(c[1]))
+      cv2.circle(self._img, center, 3, 31.875*k, 5)
+    for i in range(0,len(top_row)):
+      k = k + 1
+      c = top_row[i]
+      center = (int(c[0]),int(c[1]))
+      cv2.circle(self._img, center, 3, 31.875*k, 5)
+
     if flag_success:
       self._rvecs = rvecs
       self._tvecs = tvecs
+
 
       # Calculate pose
       Pc = tuple(feature_points[0].ravel())
@@ -597,15 +626,30 @@ class PnPSolver(object):
 
       # Calculate orientation and position
       position = Rinv*(Kinv*Pc-T)
-      position = tuple([float(val) for val in position])
-      orientation = self._rotationMatrixToEulerAngles(R)
+      position = [float(val) for val in position]
+      P = np.hstack((R,T))
+      # orientation = cv2.decomposeProjectionMatrix(P)[-1]
+      # orientation = self._rotationMatrixToEulerAngles(R)
 
-      print '\n',orientation,'\n'
+      # orientation[0] = orientation[0] - 90
+      # orientation[1] = orientation[1] - 90
+      # orientation[2] = orientation[2] + 180 
+
+      # Get relative orientation as yaw, pitch, roll with respect to feature
+      yawpitchroll_angles = -180*yawpitchrolldecomposition(R)/math.pi
+      yawpitchroll_angles[0,0] = (-90 - yawpitchroll_angles[0,0])%360 # change rotation sense if needed, comment this line otherwise
+      yawpitchroll_angles[1,0] = yawpitchroll_angles[1,0]+90
+
+      for angle in yawpitchroll_angles:
+        print angle
+
+      print '\nPos:\n\t',position
+      print 'Ori:\n\t',orientation,'\n'
 
       # Draw axes on image
       axis_len = 0.16 # [m]
       axis = np.float32([[axis_len,0,0], [0,axis_len,0], [0,0,axis_len]]).reshape(-1,3)
-      imgpts,jac = cv2.projectPoints(axis,rvecs,tvecs,self._mtx,self._dist)
+      imgpts,_ = cv2.projectPoints(axis,rvecs,tvecs,self._mtx,self._dist)
       self._img = draw_axes(self._img,feature_points,imgpts)
 
       if self._debug:
@@ -633,18 +677,35 @@ class PnPSolver(object):
   def _rotationMatrixToEulerAngles(self, R):
     '''
     Calculates rotation matrix to euler angles. The result is the same as MATLAB except the order of the euler angles (x and z are swapped).
-    '''
+    ''' 
     assert(self._isRotationMatrix(R))
+    
     sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
+    
     singular = sy < 1e-6
+ 
     if  not singular :
-        x = math.atan2(R[2,1] , R[2,2])
-        y = math.atan2(-R[2,0], sy)
-        z = math.atan2(R[1,0], R[0,0])
-    else :
-        x = math.atan2(-R[1,2], R[1,1])
-        y = math.atan2(-R[2,0], sy)
-        z = 0
-    angles_rad = np.array([x, y, z])
-    angles_deg = np.array([elm*180/np.pi for elm in angles_rad])
-    return angles_deg
+      x = math.atan2(R[2,1] , R[2,2])
+      y = math.atan2(-R[2,0], sy)
+      z = math.atan2(R[1,0], R[0,0])
+    else:
+      x = math.atan2(-R[1,2], R[1,1])
+      y = math.atan2(-R[2,0], sy)
+      z = 0
+
+    return np.array([x*180/np.pi, y*180/np.pi, z*180/np.pi])
+
+def yawpitchrolldecomposition(R):
+  sin_x    = math.sqrt(R[2,0] * R[2,0] +  R[2,1] * R[2,1])    
+  singular  = sin_x < 1e-6
+  if not singular:
+      z1    = math.atan2(R[2,0], R[2,1])     # around z1-axis
+      x      = math.atan2(sin_x,  R[2,2])     # around x-axis
+      z2    = math.atan2(R[0,2], -R[1,2])    # around z2-axis
+  else: # gimbal lock
+      z1    = 0                                         # around z1-axis
+      x      = math.atan2(sin_x,  R[2,2])     # around x-axis
+      z2    = 0                                         # around z2-axis
+
+  return np.array([[z1], [x], [z2]])
+
