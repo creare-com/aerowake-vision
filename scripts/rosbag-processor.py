@@ -46,7 +46,8 @@ if __name__ == "__main__":
   bagname = bagpath[bagpath.rfind('/') + 1:]
   filename = bagdir + 'CSV_' + bagname[:-4] + '.csv'
   rosbag_t0 = None
-  poses = ['time[s.ns],x[m],y[m],z[m]\n']
+  poses = []
+  poses.append('time[s.ns],x[m],y[m],z[m],yaw[deg],pitch[deg],roll[deg],rx[deg],ry[deg],rz[deg]\n')
   des_start = 0
   if len(sys.argv) > 2:
     des_start = int(sys.argv[2])
@@ -62,8 +63,8 @@ if __name__ == "__main__":
         dist = np.array(msg.D)
         break
 
-  # mtx = np.array([[1117.275487044934, 0, 1036.699184734313], [0, 1118.003077780998, 714.3800977413584], [0, 0, 1]])
-  # dist = np.array([-0.2729255535730914, 0.05357722019509045, 0.001586550075414054, -0.001402189204722048, 0])
+  mtx = np.array([[1117.275487044934, 0, 1036.699184734313], [0, 1118.003077780998, 714.3800977413584], [0, 0, 1]])
+  dist = np.array([-0.2729255535730914, 0.05357722019509045, 0.001586550075414054, -0.001402189204722048, 0])
 
   # Create processing objects
   cfinder = CentroidFinder(flag_show_debug_images,flag_show_debug_messages)
@@ -95,8 +96,8 @@ if __name__ == "__main__":
             show_image('original', img, flag = flag_show_images)
 
             # Rotate image if using Yellow Hex
-            if False:
-              img = imutils.rotate(img, 270)
+            if True:
+              img = imutils.rotate_bound(img, 90)
               show_image('rotated', img, flag = flag_show_images)
 
             # Rectify image
@@ -112,15 +113,17 @@ if __name__ == "__main__":
             show_image('filtered centroids', img_filt, flag = flag_show_images)
 
             # Solve for pose
-            position, orientation, img_solv = psolver.solve_pnp(img, filtered)
-            show_image('found feature', img_solv, duration = 0, flag = flag_show_images)
+            position, yawpitchroll, orientation, img_solv = psolver.solve_pnp(img, filtered)
+            show_image('found feature', img_solv, duration = 1, flag = flag_show_images)
 
             # Save pose with bag time to list
             x,y,z = position
+            yaw,pitch,roll = yawpitchroll
+            rx,ry,rz = orientation
             if x is None:
-              poses.append('%d.%0.9d,%s,%s,%s\n' %(t.secs,t.nsecs,x,y,z))
+              poses.append('%d.%0.9d,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' %(t.secs,t.nsecs,x,y,z,yaw,pitch,roll,rx,ry,rz))
             else:
-              poses.append('%d.%0.9d,%0.5f,%0.5f,%0.5f\n' %(t.secs,t.nsecs,x,y,z))
+              poses.append('%d.%0.9d,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f\n' %(t.secs,t.nsecs,x,y,z,yaw,pitch,roll,rx,ry,rz))
 
             # In the event of an error, we don't want to lose too much information. Save to file every so many lines.
             if len(poses) > 10:
