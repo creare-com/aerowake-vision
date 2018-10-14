@@ -468,7 +468,6 @@ class PnPSolver(object):
       # Find the first low-residual subset
       subsets = combinations(centroids,4)
       rows = []
-      k = 0
       for s in subsets:
         if len(rows) < 1:
           x = [p[0] for p in s]
@@ -476,7 +475,6 @@ class PnPSolver(object):
           _, residuals, _, _, _ = np.polyfit(x, y, 1, full = True)
           if residuals < 1:
             rows.append(list(s))
-          k = k + 1
 
       # If no subset seems to be linear, return empty
       if len(rows) < 1:
@@ -500,6 +498,15 @@ class PnPSolver(object):
 
       top_row = tuple([tuple(c) for c in top_row])
       bottom_row = tuple([tuple(c) for c in bottom_row])
+
+      # Perform a final test to ensure low residuals on each selection. False selections can throw off the solution, so we want to avoid them as much as possible. 
+      rows = [bottom_row, top_row]
+      for row in rows:
+        x = [p[0] for p in s]
+        y = [p[1] for p in s]
+        _, residuals, _, _, _ = np.polyfit(x, y, 1, full = True)
+        if residuals > 1:
+          return ((),())
 
       return (bottom_row,top_row)
     else:

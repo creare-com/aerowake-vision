@@ -63,8 +63,8 @@ if __name__ == "__main__":
         dist = np.array(msg.D)
         break
 
-  mtx = np.array([[1117.275487044934, 0, 1036.699184734313], [0, 1118.003077780998, 714.3800977413584], [0, 0, 1]])
-  dist = np.array([-0.2729255535730914, 0.05357722019509045, 0.001586550075414054, -0.001402189204722048, 0])
+  # mtx = np.array([[1129.304226458667, 0, 806.7047588819538], [0, 1156.177065442843, 1026.463080709087], [0, 0, 1]])
+  # dist = np.array([-0.2557570031014973, 0.04353270442408681, -0.001325026535914775, -0.0004043425940621058, 0])
 
   # Create processing objects
   cfinder = CentroidFinder(flag_show_debug_images,flag_show_debug_messages)
@@ -96,7 +96,7 @@ if __name__ == "__main__":
             show_image('original', img, flag = flag_show_images)
 
             # Rotate image if using Yellow Hex
-            if True:
+            if False:
               img = imutils.rotate_bound(img, 90)
               show_image('rotated', img, flag = flag_show_images)
 
