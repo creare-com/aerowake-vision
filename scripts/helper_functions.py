@@ -184,6 +184,11 @@ class NoiseFilter(object):
 
     # We expect 8 feature points. Filter to remove any extras.
     if len(centroids) > 8:
+
+      if self._debug:
+        print text_colors.OKBLUE + "Note: Zeroeth filter applied." + text_colors.ENDCOLOR
+      centroids = self._zeroeth_round_centroid_filter(centroids)
+
       if self._debug:
         print text_colors.OKBLUE + "Note: First filter applied." + text_colors.ENDCOLOR
       centroids = self._first_round_centroid_filter(centroids)
@@ -237,6 +242,33 @@ class NoiseFilter(object):
       else:
         groups.append([x])
     return groups
+
+  def _zeroeth_round_centroid_filter(self,centroids):
+    '''
+    Takes subsets of four and returns all centroids that have low residuals after a linear fit.
+    '''
+
+    orig_centroids = centroids
+
+    # Find rows based upon linear fit residuals
+    subsets = combinations(centroids,4)
+    rows = []
+    for s in subsets:
+      x = [p[0] for p in s]
+      y = [p[1] for p in s]
+      _, residuals, _, _, _ = np.polyfit(x, y, 1, full = True)
+      if residuals < 1.5:
+        rows.append(list(s))
+
+    # Get all centroids that exist in a low-residual subset
+    set_of_centroids = set([r[i] for r in rows for i in range(0,len(r))])
+    centroids = list(set_of_centroids)
+
+    # If zeroeth filter fails, return the original list
+    if len(centroids) < 8:
+      return orig_centroids
+
+    return centroids
 
   def _first_round_centroid_filter(self, centroids):
     '''
@@ -458,33 +490,27 @@ class PnPSolver(object):
   def _assign_points(self, centroids):
     '''
     This function assigns image points (centroids) to their corresponding real-world coordinate based upon a linear regression of subsets of four points. The feature has two rows of 4 linear points, so we expect two subsets of four points with relatively low residuals.
-
-    The length of centroids passed in must be exactly 8 or 'other_row' will not have the correct number of points.
     '''
 
     centroids = [list(c) for c in centroids]
 
-    if len(centroids) == 8:
-      # Find the first low-residual subset
+    if len(centroids) >= 8:
+      # Find rows based upon linear fit residuals
       subsets = combinations(centroids,4)
       rows = []
       for s in subsets:
-        if len(rows) < 1:
+        if len(rows) < 2:
           x = [p[0] for p in s]
           y = [p[1] for p in s]
           _, residuals, _, _, _ = np.polyfit(x, y, 1, full = True)
-          if residuals < 1:
+          if residuals < 1.5:
             rows.append(list(s))
 
-      # If no subset seems to be linear, return empty
-      if len(rows) < 1:
+      # If we can't find both rows by linearity, return empty
+      if len(rows) < 2:
         return [[0],[0]]
 
-      # Now that we have assigned one row, we can deduce the other row. Eliminate the determined row from the list of centroids. The remaining 4 points are the other row. 
-      other_row = [x for x in centroids if x not in rows[0]]
-      rows.append(list(other_row))
-
-      # Now we have both rows, so we must decide which is the top row and which is the bottom row. First, sort each row so that the points in each row are organized from right to left in the image.
+     # Now we have both rows, so we must decide which is the top row and which is the bottom row. First, sort each row so that the points in each row are organized from right to left in the image.
       for r in rows:
         r.sort(key=lambda x: x[0])
 
@@ -499,14 +525,18 @@ class PnPSolver(object):
       top_row = tuple([tuple(c) for c in top_row])
       bottom_row = tuple([tuple(c) for c in bottom_row])
 
-      # Perform a final test to ensure low residuals on each selection. False selections can throw off the solution, so we want to avoid them as much as possible. 
-      rows = [bottom_row, top_row]
-      for row in rows:
-        x = [p[0] for p in s]
-        y = [p[1] for p in s]
-        _, residuals, _, _, _ = np.polyfit(x, y, 1, full = True)
-        if residuals > 1:
-          return ((),())
+      # Draw top and bottom rows in order
+      k = 0
+      for i in range(0,len(bottom_row)):
+        k = k + 1
+        c = bottom_row[i]
+        center = (int(c[0]),int(c[1]))
+        cv2.circle(self._img, center, 3, 31.875*k, 5)
+      for i in range(0,len(top_row)):
+        k = k + 1
+        c = top_row[i]
+        center = (int(c[0]),int(c[1]))
+        cv2.circle(self._img, center, 3, 31.875*k, 5)
 
       return (bottom_row,top_row)
     else:
@@ -575,7 +605,7 @@ class PnPSolver(object):
     row_aft = [0,-1.397] # [m]
     row_port_lower = [-0.297, -0.895, -1.495, -2.099] # [m]
     row_port_lower = [elm - (-0.297) for elm in row_port_lower]
-    row_port_upper = [-0.3, -0.899, -1.498, -2.099] # [m]
+    row_port_upper = [-0.300, -0.899, -1.498, -2.099] # [m]
     row_port_upper = [elm - (-0.297) for elm in row_port_upper]
     row_port = [row_port_lower, row_port_upper]
     row_down = [0,-1.22] # [m]
@@ -609,19 +639,6 @@ class PnPSolver(object):
       use_prev_solution = False
     flag_success,rvecs,tvecs = cv2.solvePnP(objp,feature_points,self._mtx,self._dist,self._rvecs,self._tvecs,use_prev_solution,cv2.CV_ITERATIVE)
 
-    # Draw top and bottom rows in order
-    k = 0
-    for i in range(0,len(bottom_row)):
-      k = k + 1
-      c = bottom_row[i]
-      center = (int(c[0]),int(c[1]))
-      cv2.circle(self._img, center, 3, 31.875*k, 5)
-    for i in range(0,len(top_row)):
-      k = k + 1
-      c = top_row[i]
-      center = (int(c[0]),int(c[1]))
-      cv2.circle(self._img, center, 3, 31.875*k, 5)
-
     if flag_success:
       self._rvecs = rvecs
       self._tvecs = tvecs
@@ -643,7 +660,7 @@ class PnPSolver(object):
       yawpitchroll = self._zyx2ypr(orientation)
 
       # Draw axes on image
-      axis_len = 4 # [m]
+      axis_len = 0.6 # [m]
       axis = np.float32([[axis_len,0,0], [0,axis_len,0], [0,0,axis_len]]).reshape(-1,3)
       imgpts,_ = cv2.projectPoints(axis,rvecs,tvecs,self._mtx,self._dist)
       self._img = draw_axes(self._img,feature_points,imgpts)
