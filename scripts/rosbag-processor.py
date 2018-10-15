@@ -46,11 +46,21 @@ if __name__ == "__main__":
   bagname = bagpath[bagpath.rfind('/') + 1:]
   filename = bagdir + 'CSV_' + bagname[:-4] + '.csv'
   rosbag_t0 = None
+  t_start = None
   poses = []
-  poses.append('time[s.ns],x[m],y[m],z[m],yaw[deg],pitch[deg],roll[deg],rx[deg],ry[deg],rz[deg]\n')
+  poses.append('time[s.ns],elapsed[s.ns],x[m],y[m],z[m],yaw[deg],pitch[deg],roll[deg],rx[deg],ry[deg],rz[deg]\n')
+
+  # Parse user input
   des_start = 0
+  rotate = False
   if len(sys.argv) > 2:
-    des_start = int(sys.argv[2])
+    for arg in sys.argv[2:]:
+      if arg == '-r':
+        rotate = True
+      elif arg[:3] == '-s=':
+        des_start = int(arg[3:])
+      else:
+        raise Exception('Invalid input.')
 
   # Get camera info and rosbag start time
   with rosbag.Bag(bagpath) as bag:
@@ -63,8 +73,8 @@ if __name__ == "__main__":
         dist = np.array(msg.D)
         break
 
-  # mtx = np.array([[1129.304226458667, 0, 806.7047588819538], [0, 1156.177065442843, 1026.463080709087], [0, 0, 1]])
-  # dist = np.array([-0.2557570031014973, 0.04353270442408681, -0.001325026535914775, -0.0004043425940621058, 0])
+  mtx = np.array([[1145.953000785388, 0, 411.1893737660826], [0, 1385.249633866688, 494.4492909205217], [0, 0, 1]])
+  dist = np.array([-0.7810106770746291, 0.7750640784868206, 0.01639797415212634, 0.04021032166044865, 0])
 
   # Create processing objects
   cfinder = CentroidFinder(flag_show_debug_images,flag_show_debug_messages)
@@ -84,10 +94,13 @@ if __name__ == "__main__":
         last_time = time.clock()
         for topic, msg, t in bag.read_messages(start_time=genpy.rostime.Time(des_start)):
 
+          if t_start is None:
+            t_start = t
+
           if time.clock() - last_time > .1:
             percent = (t.to_sec() - start_time) / duration
             status(40, percent)
-            last_time = time.clock()        
+            last_time = time.clock()
 
           if topic == '/camera/image_raw':
 
@@ -96,7 +109,7 @@ if __name__ == "__main__":
             show_image('original', img, flag = flag_show_images)
 
             # Rotate image if using Yellow Hex
-            if False:
+            if rotate:
               img = imutils.rotate_bound(img, 90)
               show_image('rotated', img, flag = flag_show_images)
 
@@ -109,21 +122,20 @@ if __name__ == "__main__":
             show_image('initial centroids', img_cent, flag = flag_show_images)
 
             # Process for noise
-            filtered, img_filt = nfilter.filter_noise(img, centroids)
+            centroids, img_filt = nfilter.filter_noise(img, centroids)
             show_image('filtered centroids', img_filt, flag = flag_show_images)
 
             # Solve for pose
-            position, yawpitchroll, orientation, img_solv = psolver.solve_pnp(img, filtered)
+            position, yawpitchroll, orientation, img_solv = psolver.solve_pnp(img, centroids)
             show_image('found feature', img_solv, duration = 1, flag = flag_show_images)
 
             # Save pose with bag time to list
-            x,y,z = position
-            yaw,pitch,roll = yawpitchroll
-            rx,ry,rz = orientation
-            if x is None:
-              poses.append('%d.%0.9d,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' %(t.secs,t.nsecs,x,y,z,yaw,pitch,roll,rx,ry,rz))
-            else:
-              poses.append('%d.%0.9d,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f\n' %(t.secs,t.nsecs,x,y,z,yaw,pitch,roll,rx,ry,rz))
+            if not position[0] is None:
+              elapsed = t - t_start
+              x,y,z = position
+              yaw,pitch,roll = yawpitchroll
+              rx,ry,rz = orientation
+              poses.append('%d.%0.9d,%d.%0.9d,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f\n' %(t.secs,t.nsecs,elapsed.secs,elapsed.nsecs,x,y,z,yaw,pitch,roll,rx,ry,rz))
 
             # In the event of an error, we don't want to lose too much information. Save to file every so many lines.
             if len(poses) > 10:
