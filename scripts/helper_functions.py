@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import cv2
+import math
 import numpy as np
 
 from cv_bridge import CvBridge, CvBridgeError
@@ -24,7 +25,7 @@ class text_colors:
   UNDERLINE = '\033[4m'
 
 # Image Processing Functions
-def convert_image(msg, mtx, dist, flag = False):
+def convert_image(msg, flag = False):
   '''
   Converts ROS image to OpenCV image, then blocks out errant pixels and rectifies.
   '''
@@ -39,10 +40,6 @@ def convert_image(msg, mtx, dist, flag = False):
   cv2.rectangle(img, (0,0), (30,1), 0, cv2.cv.CV_FILLED)
   show_image('blacked out', img, flag)
 
-  # Rectify image
-  img = rectify(img, mtx, dist)
-  show_image('rectified', img, flag)
-
   return img
 
 def show_image(title, img, flag = True, duration = 1):
@@ -56,6 +53,14 @@ def show_image(title, img, flag = True, duration = 1):
   if flag:
     cv2.imshow(title,img)
     cv2.waitKey(duration)
+
+def draw_axes(img, corners, imgpts):
+    img_deep_copy = np.array(img)
+    corner = tuple(corners[0].ravel())
+    cv2.line(img_deep_copy,corner,tuple(imgpts[2].ravel()),255,3)
+    cv2.line(img_deep_copy,corner,tuple(imgpts[1].ravel()),170,3)
+    cv2.line(img_deep_copy,corner,tuple(imgpts[0].ravel()),85,3)
+    return img_deep_copy
 
 def rectify(img, mtx, dist):
   # Undistortion
@@ -106,7 +111,7 @@ class CentroidFinder(object):
     max_value = 255
     block_size = 5
     const = 1
-    threshold_value = 175
+    threshold_value = 85
     _,self._img = cv2.threshold(self._img,threshold_value,max_value,cv2.THRESH_BINARY)
 
     if self._show_images:
@@ -179,6 +184,11 @@ class NoiseFilter(object):
 
     # We expect 8 feature points. Filter to remove any extras.
     if len(centroids) > 8:
+
+      if self._debug:
+        print text_colors.OKBLUE + "Note: Zeroeth filter applied." + text_colors.ENDCOLOR
+      centroids = self._zeroeth_round_centroid_filter(centroids)
+
       if self._debug:
         print text_colors.OKBLUE + "Note: First filter applied." + text_colors.ENDCOLOR
       centroids = self._first_round_centroid_filter(centroids)
@@ -232,6 +242,33 @@ class NoiseFilter(object):
       else:
         groups.append([x])
     return groups
+
+  def _zeroeth_round_centroid_filter(self,centroids):
+    '''
+    Takes subsets of four and returns all centroids that have low residuals after a linear fit.
+    '''
+
+    orig_centroids = centroids
+
+    # Find rows based upon linear fit residuals
+    subsets = combinations(centroids,4)
+    rows = []
+    for s in subsets:
+      x = [p[0] for p in s]
+      y = [p[1] for p in s]
+      _, residuals, _, _, _ = np.polyfit(x, y, 1, full = True)
+      if residuals < 1.5:
+        rows.append(list(s))
+
+    # Get all centroids that exist in a low-residual subset
+    set_of_centroids = set([r[i] for r in rows for i in range(0,len(r))])
+    centroids = list(set_of_centroids)
+
+    # If zeroeth filter fails, return the original list
+    if len(centroids) < 8:
+      return orig_centroids
+
+    return centroids
 
   def _first_round_centroid_filter(self, centroids):
     '''
@@ -424,6 +461,7 @@ class PnPSolver(object):
     self._debug = flag_debug
     self._mtx = mtx
     self._dist = dist
+    self._print_feature_name = True
     self._img = None
     self._rvecs = None
     self._tvecs = None
@@ -442,52 +480,37 @@ class PnPSolver(object):
     if not total_points_assigned == 8:
       if self._debug:
         print text_colors.FAIL + "Failure: Failure to assign points correctly." + text_colors.ENDCOLOR
-      return (None,None,None), None, self._img
-
-    i = 0
-    for row in assigned_rows:
-      i += 1
-      for c in row:
-        center = (int(c[0]),int(c[1]))
-        cv2.circle(self._img, center, 3, 255.0/i, 3)
+      return (None,None,None), (None,None,None), (None,None,None), self._img
 
     # Extract pose
-    position, orientation = self._pose_extraction(assigned_rows)
+    position, yawpitchroll, orientation = self._pose_extraction(assigned_rows)
 
-    return position, orientation, self._img
+    return position, yawpitchroll, orientation, self._img
 
   def _assign_points(self, centroids):
     '''
     This function assigns image points (centroids) to their corresponding real-world coordinate based upon a linear regression of subsets of four points. The feature has two rows of 4 linear points, so we expect two subsets of four points with relatively low residuals.
-
-    The length of centroids passed in must be exactly 8 or 'other_row' will not have the correct number of points.
     '''
 
     centroids = [list(c) for c in centroids]
 
-    if len(centroids) == 8:
-      # Find the first low-residual subset
+    if len(centroids) >= 8:
+      # Find rows based upon linear fit residuals
       subsets = combinations(centroids,4)
       rows = []
-      k = 0
       for s in subsets:
-        if len(rows) < 1:
+        if len(rows) < 2:
           x = [p[0] for p in s]
           y = [p[1] for p in s]
           _, residuals, _, _, _ = np.polyfit(x, y, 1, full = True)
-          if residuals < 1:
+          if residuals < 1.5:
             rows.append(list(s))
-          k = k + 1
 
-      # If no subset seems to be linear, return empty
-      if len(rows) < 1:
+      # If we can't find both rows by linearity, return empty
+      if len(rows) < 2:
         return [[0],[0]]
 
-      # Now that we have assigned one row, we can deduce the other row. Eliminate the determined row from the list of centroids. The remaining 4 points are the other row. 
-      other_row = [x for x in centroids if x not in rows[0]]
-      rows.append(list(other_row))
-
-      # Now we have both rows, so we must decide which is the top row and which is the bottom row. First, sort each row so that the points in each row are organized from right to left in the image.
+     # Now we have both rows, so we must decide which is the top row and which is the bottom row. First, sort each row so that the points in each row are organized from right to left in the image.
       for r in rows:
         r.sort(key=lambda x: x[0])
 
@@ -501,6 +524,19 @@ class PnPSolver(object):
 
       top_row = tuple([tuple(c) for c in top_row])
       bottom_row = tuple([tuple(c) for c in bottom_row])
+
+      # Draw top and bottom rows in order
+      k = 0
+      for i in range(0,len(bottom_row)):
+        k = k + 1
+        c = bottom_row[i]
+        center = (int(c[0]),int(c[1]))
+        cv2.circle(self._img, center, 3, 31.875*k, 5)
+      for i in range(0,len(top_row)):
+        k = k + 1
+        c = top_row[i]
+        center = (int(c[0]),int(c[1]))
+        cv2.circle(self._img, center, 3, 31.875*k, 5)
 
       return (bottom_row,top_row)
     else:
@@ -525,10 +561,54 @@ class PnPSolver(object):
 
     # Calculate pose. First, define object points. The units used here, [cm], will determine the units of the output. These are the relative positions of the beacons in NED GCS-frame coordinates (aft, port, down).
     objp = np.zeros((8,1,3), np.float32)
-    # Currently set to vicon feature
-    row_aft = [0,-0.802] # [m]
-    row_port = [[0.0, -0.161, -0.318, -0.476],[0.0, -0.159, -0.318, -0.472]]
-    row_down = [0,-0.256] # [m]
+
+    # # VICON FEATURE
+    # if self._print_feature_name:
+    #   print text_colors.OKGREEN + "Using vicon feature" + text_colors.ENDCOLOR
+    #   self._print_feature_name = False
+    # row_aft = [0,-0.802] # [m]
+    # row_port = [[0.0, -0.161, -0.318, -0.476],[0.0, -0.159, -0.318, -0.472]] # [m]
+    # row_down = [0,-0.256] # [m]
+    # # Lower row of beacons
+    # objp[0] = [ row_aft[0], row_port[0][0], row_down[0]]
+    # objp[1] = [ row_aft[0], row_port[0][1], row_down[0]]
+    # objp[2] = [ row_aft[0], row_port[0][2], row_down[0]]
+    # objp[3] = [ row_aft[0], row_port[0][3], row_down[0]]
+    # # Upper row of beacons
+    # objp[4] = [ row_aft[1], row_port[1][0], row_down[1]]
+    # objp[5] = [ row_aft[1], row_port[1][1], row_down[1]]
+    # objp[6] = [ row_aft[1], row_port[1][2], row_down[1]]
+    # objp[7] = [ row_aft[1], row_port[1][3], row_down[1]]
+
+    # # ORIENTATION TEST VICON FEATURE
+    # if self._print_feature_name:
+    #   print text_colors.OKGREEN + "Using orientation test vicon feature" + text_colors.ENDCOLOR
+    #   self._print_feature_name = False
+    # row_x = [0, -0.802]
+    # row_y = [[0.0, 0.161, 0.318, 0.476],[0.0, 0.159, 0.318, 0.472]]
+    # row_z = [0,0.256]
+    # # Lower row of beacons
+    # objp[0] = [ row_x[0], row_y[0][0], row_z[0]]
+    # objp[1] = [ row_x[0], row_y[0][1], row_z[0]]
+    # objp[2] = [ row_x[0], row_y[0][2], row_z[0]]
+    # objp[3] = [ row_x[0], row_y[0][3], row_z[0]]
+    # # Upper row of beacons
+    # objp[4] = [ row_x[1], row_y[1][0], row_z[1]]
+    # objp[5] = [ row_x[1], row_y[1][1], row_z[1]]
+    # objp[6] = [ row_x[1], row_y[1][2], row_z[1]]
+    # objp[7] = [ row_x[1], row_y[1][3], row_z[1]]
+
+    # TRAILER FEATURE
+    if self._print_feature_name:
+      print text_colors.OKGREEN + "Using trailer feature" + text_colors.ENDCOLOR
+      self._print_feature_name = False
+    row_aft = [0,-1.397] # [m]
+    row_port_lower = [-0.297, -0.895, -1.495, -2.099] # [m]
+    row_port_lower = [elm - (-0.297) for elm in row_port_lower]
+    row_port_upper = [-0.300, -0.899, -1.498, -2.099] # [m]
+    row_port_upper = [elm - (-0.297) for elm in row_port_upper]
+    row_port = [row_port_lower, row_port_upper]
+    row_down = [0,-1.22] # [m]
     # Lower row of beacons
     objp[0] = [ row_aft[0], row_port[0][0], row_down[0]]
     objp[1] = [ row_aft[0], row_port[0][1], row_down[0]]
@@ -540,7 +620,7 @@ class PnPSolver(object):
     objp[6] = [ row_aft[1], row_port[1][2], row_down[1]]
     objp[7] = [ row_aft[1], row_port[1][3], row_down[1]]
 
-    # Define feature points by the correspondences determined above. The bottom row (assigned_points[0]) corresponds to the lower row of beacons, and the top row (assigned_points[1]) corresponds to the upper row. Each row in assigned_points is arranged with the leftmost point in the image in the first index, and so on. 
+    # Define feature points by the correspondences determined above. The bottom row corresponds to the lower row of beacons, and the top row corresponds to the upper row. Each row in is arranged with the leftmost point in the image in the first index, and so on. 
     feature_points = np.zeros((8,1,2), np.float32)
     # Lowermost Subset
     feature_points[0] = bottom_row[0]
@@ -571,10 +651,19 @@ class PnPSolver(object):
       Rinv = np.matrix(np.linalg.inv(R))
       T = np.array(self._tvecs)
 
-      # Calculate orientation and position
+      # Calculate relative position
       position = Rinv*(Kinv*Pc-T)
-      position = tuple([round(float(val),5) for val in position])
-      orientation = None # TODO: calculate orientation correctly
+      position = [float(val) for val in position]
+
+      # Get relative orientation as yaw, pitch, roll with respect to feature
+      orientation = self._orientation_decomposition(R)
+      yawpitchroll = self._zyx2ypr(orientation)
+
+      # Draw axes on image
+      axis_len = 0.6 # [m]
+      axis = np.float32([[axis_len,0,0], [0,axis_len,0], [0,0,axis_len]]).reshape(-1,3)
+      imgpts,_ = cv2.projectPoints(axis,rvecs,tvecs,self._mtx,self._dist)
+      self._img = draw_axes(self._img,feature_points,imgpts)
 
       if self._debug:
         print text_colors.OKGREEN + "Success." + text_colors.ENDCOLOR
@@ -583,7 +672,53 @@ class PnPSolver(object):
       self._rvecs = None
       self._tvecs = None
       position = (None, None, None)
-      orientation = None
+      orientation = (None, None, None)
+      yawpitchroll = (None, None, None)
 
     # Return the obtained pose, rvecs, and tvecs
-    return position, orientation
+    return position, yawpitchroll, orientation
+
+  def _orientation_decomposition(self,R):
+    '''
+    Returns rotation in degrees of the camera w.r.t. GCS.
+    '''
+    sin_y = math.sqrt(R[2,0]*R[2,0] + R[2,1]*R[2,1])
+    singular = sin_y < 1e-6
+    if not singular:
+      z = math.atan2(R[2,0], R[2,1])
+      y = math.atan2(sin_y, R[2,2])
+      x = math.atan2(R[0,2], -R[1,2])
+    else: # Gimbal lock
+      z = 0
+      y = math.atan2(sin_y, R[2,2])
+      x = 0
+    z = z*180/np.pi
+    y = y*180/np.pi
+    x = x*180/np.pi
+
+    # Unsure why these are needed, but it works
+    z = (-90 - z) % 360
+    y = y + 90
+
+    # Limit z to +- 180
+    if z > 180:
+      z = z - 360
+
+    return [z,y,x]
+
+  def _zyx2ypr(self, zyx_angles):
+    '''
+    Converts rotation angles in degrees to relative yaw, pitch, and roll in degrees.
+    '''
+    z = zyx_angles[0]
+    y = zyx_angles[1]
+    x = zyx_angles[2]
+
+    yaw = z
+    pitch = y - 180
+    if x > 0:
+      roll = -(x - 180)
+    else:
+      roll = -(x + 180)
+
+    return [yaw,pitch,roll]

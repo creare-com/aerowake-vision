@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import genpy.rostime
+import imutils
 import numpy as np
 import rosbag
 import subprocess
@@ -9,12 +10,9 @@ import time
 import yaml
 
 from helper_functions import CentroidFinder, NoiseFilter, PnPSolver
-from helper_functions import convert_image, show_image
+from helper_functions import convert_image, rectify, show_image
 
 class Timer(object):
-  '''
-  Prints elapsed time to terminal.
-  '''
   def __init__(self, name=None):
     self._name = name
   def __enter__(self):
@@ -25,9 +23,6 @@ class Timer(object):
     print '\nElapsed: %s seconds' %(time.time() - self._tstart)
 
 def status(length, percent):
-  '''
-  Prints percentage completion to terminal.
-  '''
   sys.stdout.write('\x1B[2K') # Erase entire current line
   sys.stdout.write('\x1B[0E') # Move to the beginning of the current line
   progress = "Progress: ["
@@ -42,43 +37,53 @@ def status(length, percent):
 
 if __name__ == "__main__":
 
-  # Set flags
-  flag_images = False
-  flag_debug_images = False
-  flag_debug_messages = False
-
-  # Get bag directory and set CSV filename
+  # Set global variables
+  flag_show_images = True
+  flag_show_debug_images = False
+  flag_show_debug_messages = False
   bagpath = sys.argv[1]
   bagdir = bagpath[:bagpath.rfind('/') + 1]
   bagname = bagpath[bagpath.rfind('/') + 1:]
   filename = bagdir + 'CSV_' + bagname[:-4] + '.csv'
+  rosbag_t0 = None
+  t_start = None
+  poses = []
+  poses.append('time[s.ns],elapsed[s.ns],x[m],y[m],z[m],yaw[deg],pitch[deg],roll[deg],rx[deg],ry[deg],rz[deg]\n')
 
-  # Start CSV variable with header
-  poses = ['time[s.ns],x[m],y[m],z[m]\n']
-
-  # Set desired start bagtime
+  # Parse user input
   des_start = 0
+  rotate = False
   if len(sys.argv) > 2:
-    des_start = int(sys.argv[2])    
+    for arg in sys.argv[2:]:
+      if arg == '-r':
+        rotate = True
+      elif arg[:3] == '-s=':
+        des_start = int(arg[3:])
+      else:
+        raise Exception('Invalid input.')
 
   # Get camera info and rosbag start time
-  rosbag_t0 = None
   with rosbag.Bag(bagpath) as bag:
     for topic, msg, t in bag.read_messages():
       if rosbag_t0 is None: 
         rosbag_t0 = t.to_sec()
-        des_start = genpy.rostime.Time(rosbag_t0 + des_start)
+        des_start = rosbag_t0 + des_start
       if topic == '/camera/camera_info':
         mtx = np.array([msg.K[0:3],msg.K[3:6],msg.K[6:9]])
         dist = np.array(msg.D)
         break
 
-  # Create processing objects
-  cfinder = CentroidFinder(flag_debug_images,flag_debug_messages)
-  nfilter = NoiseFilter(flag_debug_images,flag_debug_messages)
-  psolver = PnPSolver(mtx, dist, flag_debug_images,flag_debug_messages)
+  mtx = np.array([[1145.953000785388, 0, 411.1893737660826], [0, 1385.249633866688, 494.4492909205217], [0, 0, 1]])
+  dist = np.array([-0.7810106770746291, 0.7750640784868206, 0.01639797415212634, 0.04021032166044865, 0])
 
-  # Set variables to show progress
+  # Create processing objects
+  cfinder = CentroidFinder(flag_show_debug_images,flag_show_debug_messages)
+  nfilter = NoiseFilter(flag_show_debug_images,flag_show_debug_messages)
+  # We rectify the image before finding centroids, so the points passed to the PnPSolver do not have any distortion. Set the distortion matrix for the PnPSolver to zero. 
+  pnp_dist = 0
+  psolver = PnPSolver(mtx, pnp_dist, flag_show_debug_images,flag_show_debug_messages)
+
+  # Set variables to determine progress
   info_dict = yaml.load(subprocess.Popen(['rosbag', 'info', '--yaml', bagpath], stdout=subprocess.PIPE).communicate()[0])
   duration = info_dict['duration']
   start_time = info_dict['start']
@@ -87,36 +92,52 @@ if __name__ == "__main__":
     with open(filename,'w') as f:
       with rosbag.Bag(bagpath) as bag:
         last_time = time.clock()
-        for topic, msg, t in bag.read_messages(start_time=des_start):
+        for topic, msg, t in bag.read_messages(start_time=genpy.rostime.Time(des_start)):
+
+          if t_start is None:
+            t_start = t
 
           if time.clock() - last_time > .1:
             percent = (t.to_sec() - start_time) / duration
             status(40, percent)
-            last_time = time.clock()        
+            last_time = time.clock()
 
           if topic == '/camera/image_raw':
 
             # Convert ROS message to OpenCV image
-            img = convert_image(msg, mtx, dist, flag = flag_debug_images)
-            show_image('original', img, flag = flag_images)
+            img = convert_image(msg, flag = flag_show_debug_images)
+            show_image('original', img, flag = flag_show_images)
+
+            # Rotate image if using Yellow Hex
+            if rotate:
+              img = imutils.rotate_bound(img, 90)
+              show_image('rotated', img, flag = flag_show_images)
+
+            # Rectify image
+            img = rectify(img, mtx, dist)
+            show_image('rectified', img, flag = flag_show_images)
 
             # Find initial centroids
             centroids, img_cent = cfinder.get_centroids(img)
-            show_image('initial centroids', img_cent, flag = flag_images)
+            show_image('initial centroids', img_cent, flag = flag_show_images)
 
             # Process for noise
-            filtered, img_filt = nfilter.filter_noise(img, centroids)
-            show_image('filtered centroids', img_filt, flag = flag_images)
+            centroids, img_filt = nfilter.filter_noise(img, centroids)
+            show_image('filtered centroids', img_filt, flag = flag_show_images)
 
             # Solve for pose
-            position, orientation, img_solv = psolver.solve_pnp(img, filtered)
-            show_image('found feature', img_solv, flag = flag_images)
+            position, yawpitchroll, orientation, img_solv = psolver.solve_pnp(img, centroids)
+            show_image('found feature', img_solv, duration = 1, flag = flag_show_images)
 
-            # Append position and associated bag time to CSV save variable
-            x,y,z = position
-            poses.append('%d.%0.9d,%s,%s,%s\n' %(t.secs,t.nsecs,x,y,z))
+            # Save pose with bag time to list
+            if not position[0] is None:
+              elapsed = t - t_start
+              x,y,z = position
+              yaw,pitch,roll = yawpitchroll
+              rx,ry,rz = orientation
+              poses.append('%d.%0.9d,%d.%0.9d,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f\n' %(t.secs,t.nsecs,elapsed.secs,elapsed.nsecs,x,y,z,yaw,pitch,roll,rx,ry,rz))
 
-            # In the event of an error that crashes this script, we don't want to lose too much information. Save to file every so many lines.
+            # In the event of an error, we don't want to lose too much information. Save to file every so many lines.
             if len(poses) > 10:
               # Write to file
               for p in poses:
