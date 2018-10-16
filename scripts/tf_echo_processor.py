@@ -5,6 +5,9 @@ import re
 import sys
 import time
 
+def raise_exception():
+  raise Exception('oops')
+
 def parse_line(line):
   '''
   Parses a string for desired data. Input lines are expected to be in the exact format as the output of 'rosrun tf tf_echo /body1 /body2'.
@@ -34,11 +37,11 @@ if __name__ == "__main__":
   tfpath = sys.argv[1]
   tfdir = tfpath[:tfpath.rfind('/') + 1]
   tfname = tfpath[tfpath.rfind('/') + 1:]
-  filename = tfdir + 'CSV_' + tfname[:-4] + '.csv'
-  
+  filename = tfdir + tfname[:-4].replace('TF','TF-proc') + '.csv'
+
   # Open output file and input file
   with open(filename,'w') as wf:
-    with open(tfname, 'r') as rf:
+    with open(tfdir + tfname, 'r') as rf:
 
       # Read all data into a variable
       all_data = rf.readlines()
@@ -49,7 +52,7 @@ if __name__ == "__main__":
       write_to_file = False
 
       # Write file header
-      wf.write('t_vicon,x_vicon,y_vicon,z_vicon,rx_vicon,ry_vicon,rz_vicon\n')
+      wf.write('t,x,y,z,rx,ry,rz\n')
 
       # Loop through each line and parse data
       for line in all_data:
