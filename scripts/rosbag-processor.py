@@ -73,8 +73,8 @@ if __name__ == "__main__":
         dist = np.array(msg.D)
         break
 
-  # mtx = np.array([[578.7081591727842, 0, 506.3830195000974], [0, 575.5020697357721, 364.57035664501], [0, 0, 1]])
-  # dist = np.array([-0.2595459593463686, 0.04624504977788417, -0.0007908549563772796, -0.000923039841816549, 0])
+  mtx = np.array([[990.6089386924126, 0, 649.8683709187349], [0, 992.4546641961812, 493.67582459076], [0, 0, 1]])
+  dist = np.array([-0.331452753057412, 0.105959239301334, -0.0003981374517582984, -0.0002246535214772431, 0])
 
   # Create processing objects
   cfinder = CentroidFinder(flag_show_debug_images,flag_show_debug_messages)
@@ -100,9 +100,9 @@ if __name__ == "__main__":
             status(40, percent)
             last_time = time.clock()
 
-          if topic == '/camera/camera_info':
-            print ''
-            print msg
+          # if topic == '/camera/camera_info':
+          #   print ''
+          #   print msg
 
           if topic == '/camera/image_raw':
 
@@ -110,8 +110,8 @@ if __name__ == "__main__":
             img = convert_image(msg, flag = flag_show_debug_images)
             show_image('original', img, flag = flag_show_debug_images)
 
-            print ''
-            print img.shape
+            # print ''
+            # print img.shape
 
             # Find initial centroids
             centroids, img_cent = cfinder.get_centroids(img)
