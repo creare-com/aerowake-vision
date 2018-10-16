@@ -31,7 +31,22 @@ def convert_image(msg, flag = False):
   '''
   bridge = CvBridge()
   try:
-    img = bridge.imgmsg_to_cv2(msg, '8UC1')
+    # cv_bridge automatically scales, we need to remove that behavior
+    if bridge.encoding_to_dtype_with_channels(msg.encoding)[0] in ['uint16', 'int16']:
+      mono16 = bridge.imgmsg_to_cv2(msg, '16UC1')
+      mono8 = numpy.array(numpy.clip(mono16, 0, 255), dtype=numpy.uint8)
+      img = mono8
+    elif 'FC1' in msg.encoding:
+      # floating point image handling
+      img = bridge.imgmsg_to_cv2(msg, "passthrough")
+      _, max_val, _, _ = cv2.minMaxLoc(img)
+      if max_val > 0:
+        scale = 255.0 / max_val
+        img = (img * scale).astype(numpy.uint8)
+      else:
+        img = img.astype(numpy.uint8)
+    else:
+        img = bridge.imgmsg_to_cv2(msg, "mono8")
   except CvBridgeError as e:
     print text_colors.WARNING + 'Warning: Image converted unsuccessfully before processing.' + text_colors.ENDCOLOR
     raise e
@@ -193,10 +208,11 @@ class NoiseFilter(object):
         print text_colors.OKBLUE + "Note: First filter applied." + text_colors.ENDCOLOR
       centroids = self._first_round_centroid_filter(centroids)
 
-      if len(centroids) > 8:
-        if self._debug:
-          print text_colors.OKBLUE + "Note: Second filter applied." + text_colors.ENDCOLOR
-        centroids = self._second_round_centroid_filter(centroids)
+      # TODO: rewrite 2nd round filter to be camera orientation independent (i.e. if camera is mounted at 90 degrees, make 2nd round filter work still)
+      # if len(centroids) > 8:
+      #   if self._debug:
+      #     print text_colors.OKBLUE + "Note: Second filter applied." + text_colors.ENDCOLOR
+      #   centroids = self._second_round_centroid_filter(centroids)
 
     # The filters may have wiped out too many points. Check if that's the case.
     if len(centroids) < 8:
@@ -456,7 +472,7 @@ class NoiseFilter(object):
     return tuple(points)
 
 class PnPSolver(object):
-  def __init__(self, mtx, dist, show_images, flag_debug):
+  def __init__(self, mtx, dist, show_images, flag_debug, rotate):
     self._show_images = show_images
     self._debug = flag_debug
     self._mtx = mtx
@@ -465,6 +481,7 @@ class PnPSolver(object):
     self._img = None
     self._rvecs = None
     self._tvecs = None
+    self._rotate = rotate
 
   def solve_pnp(self, img, centroids):
     '''
@@ -502,7 +519,10 @@ class PnPSolver(object):
         if len(rows) < 2:
           x = [p[0] for p in s]
           y = [p[1] for p in s]
-          _, residuals, _, _, _ = np.polyfit(x, y, 1, full = True)
+          if self._rotate:
+            _, residuals, _, _, _ = np.polyfit(y, x, 1, full = True)
+          else:
+            _, residuals, _, _, _ = np.polyfit(x, y, 1, full = True)
           if residuals < 1.5:
             rows.append(list(s))
 
@@ -510,17 +530,29 @@ class PnPSolver(object):
       if len(rows) < 2:
         return [[0],[0]]
 
-     # Now we have both rows, so we must decide which is the top row and which is the bottom row. First, sort each row so that the points in each row are organized from right to left in the image.
-      for r in rows:
-        r.sort(key=lambda x: x[0])
-
-      # Then, use the first element of each row to determine which row is on top
-      if rows[0][0][1] < rows[1][0][1]:
-        top_row    = rows[0]
-        bottom_row = rows[1]
+      # Now we have both rows, so we must decide which is the top row and which is the bottom row. First, sort each row so that the points in each row are organized from right to left (if rotated, top to bottom) in the image.
+      if self._rotate:
+        for r in rows:
+          r.sort(key=lambda x: -x[1])
       else:
-        top_row    = rows[1]
-        bottom_row = rows[0]
+        for r in rows:
+          r.sort(key=lambda x: x[0])
+
+      # Then, use the first element of each row to determine which row is on top (if rotated determine which row is on the left)
+      if self._rotate:
+        if rows[0][0][0] < rows[1][0][0]:
+          top_row    = rows[0]
+          bottom_row = rows[1]
+        else:
+          top_row    = rows[1]
+          bottom_row = rows[0]
+      else:
+        if rows[0][0][1] < rows[1][0][1]:
+          top_row    = rows[0]
+          bottom_row = rows[1]
+        else:
+          top_row    = rows[1]
+          bottom_row = rows[0]
 
       top_row = tuple([tuple(c) for c in top_row])
       bottom_row = tuple([tuple(c) for c in bottom_row])

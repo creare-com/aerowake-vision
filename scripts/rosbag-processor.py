@@ -73,15 +73,15 @@ if __name__ == "__main__":
         dist = np.array(msg.D)
         break
 
-  mtx = np.array([[1145.953000785388, 0, 411.1893737660826], [0, 1385.249633866688, 494.4492909205217], [0, 0, 1]])
-  dist = np.array([-0.7810106770746291, 0.7750640784868206, 0.01639797415212634, 0.04021032166044865, 0])
+  # mtx = np.array([[1145.953000785388, 0, 411.1893737660826], [0, 1385.249633866688, 494.4492909205217], [0, 0, 1]])
+  # dist = np.array([-0.7810106770746291, 0.7750640784868206, 0.01639797415212634, 0.04021032166044865, 0])
 
   # Create processing objects
   cfinder = CentroidFinder(flag_show_debug_images,flag_show_debug_messages)
   nfilter = NoiseFilter(flag_show_debug_images,flag_show_debug_messages)
   # We rectify the image before finding centroids, so the points passed to the PnPSolver do not have any distortion. Set the distortion matrix for the PnPSolver to zero. 
   pnp_dist = 0
-  psolver = PnPSolver(mtx, pnp_dist, flag_show_debug_images,flag_show_debug_messages)
+  psolver = PnPSolver(mtx, pnp_dist, flag_show_debug_images,flag_show_debug_messages, rotate)
 
   # Set variables to determine progress
   info_dict = yaml.load(subprocess.Popen(['rosbag', 'info', '--yaml', bagpath], stdout=subprocess.PIPE).communicate()[0])
@@ -107,11 +107,6 @@ if __name__ == "__main__":
             # Convert ROS message to OpenCV image
             img = convert_image(msg, flag = flag_show_debug_images)
             show_image('original', img, flag = flag_show_images)
-
-            # Rotate image if using Yellow Hex
-            if rotate:
-              img = imutils.rotate_bound(img, 90)
-              show_image('rotated', img, flag = flag_show_images)
 
             # Rectify image
             img = rectify(img, mtx, dist)
