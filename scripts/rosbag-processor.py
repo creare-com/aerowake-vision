@@ -73,15 +73,13 @@ if __name__ == "__main__":
         dist = np.array(msg.D)
         break
 
-  # mtx = np.array([[1145.953000785388, 0, 411.1893737660826], [0, 1385.249633866688, 494.4492909205217], [0, 0, 1]])
-  # dist = np.array([-0.7810106770746291, 0.7750640784868206, 0.01639797415212634, 0.04021032166044865, 0])
+  # mtx = np.array([[578.7081591727842, 0, 506.3830195000974], [0, 575.5020697357721, 364.57035664501], [0, 0, 1]])
+  # dist = np.array([-0.2595459593463686, 0.04624504977788417, -0.0007908549563772796, -0.000923039841816549, 0])
 
   # Create processing objects
   cfinder = CentroidFinder(flag_show_debug_images,flag_show_debug_messages)
-  nfilter = NoiseFilter(flag_show_debug_images,flag_show_debug_messages)
-  # We rectify the image before finding centroids, so the points passed to the PnPSolver do not have any distortion. Set the distortion matrix for the PnPSolver to zero. 
-  pnp_dist = 0
-  psolver = PnPSolver(mtx, pnp_dist, flag_show_debug_images,flag_show_debug_messages, rotate)
+  nfilter = NoiseFilter(flag_show_debug_images,flag_show_debug_messages,rotate)
+  psolver = PnPSolver(mtx, dist,flag_show_debug_images,flag_show_debug_messages,rotate)
 
   # Set variables to determine progress
   info_dict = yaml.load(subprocess.Popen(['rosbag', 'info', '--yaml', bagpath], stdout=subprocess.PIPE).communicate()[0])
@@ -102,15 +100,18 @@ if __name__ == "__main__":
             status(40, percent)
             last_time = time.clock()
 
+          if topic == '/camera/camera_info':
+            print ''
+            print msg
+
           if topic == '/camera/image_raw':
 
             # Convert ROS message to OpenCV image
             img = convert_image(msg, flag = flag_show_debug_images)
-            show_image('original', img, flag = flag_show_images)
+            show_image('original', img, flag = flag_show_debug_images)
 
-            # Rectify image
-            img = rectify(img, mtx, dist)
-            show_image('rectified', img, flag = flag_show_images)
+            print ''
+            print img.shape
 
             # Find initial centroids
             centroids, img_cent = cfinder.get_centroids(img)

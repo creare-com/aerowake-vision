@@ -126,7 +126,7 @@ class CentroidFinder(object):
     max_value = 255
     block_size = 5
     const = 1
-    threshold_value = 85
+    threshold_value = 65
     _,self._img = cv2.threshold(self._img,threshold_value,max_value,cv2.THRESH_BINARY)
 
     if self._show_images:
@@ -177,10 +177,11 @@ class CentroidFinder(object):
     return tuple(centroids)
 
 class NoiseFilter(object):
-  def __init__(self, show_images, flag_debug):
+  def __init__(self, show_images, flag_debug, rotate):
     self._show_images = show_images
     self._img = None
     self._debug = flag_debug
+    self._rotate = rotate
 
   def filter_noise(self, img, centroids):
     '''
@@ -261,7 +262,7 @@ class NoiseFilter(object):
 
   def _zeroeth_round_centroid_filter(self,centroids):
     '''
-    Takes subsets of four and returns all centroids that have low residuals after a linear fit.
+    Takes subsets of four and returns all centroids that have low residuals after a linear fit. 
     '''
 
     orig_centroids = centroids
@@ -272,8 +273,11 @@ class NoiseFilter(object):
     for s in subsets:
       x = [p[0] for p in s]
       y = [p[1] for p in s]
-      _, residuals, _, _, _ = np.polyfit(x, y, 1, full = True)
-      if residuals < 1.5:
+      if self._rotate:
+        _, residuals, _, _, _ = np.polyfit(y, x, 1, full = True)
+      else:
+        _, residuals, _, _, _ = np.polyfit(x, y, 1, full = True)
+      if residuals < 4:
         rows.append(list(s))
 
     # Get all centroids that exist in a low-residual subset
@@ -514,21 +518,19 @@ class PnPSolver(object):
     if len(centroids) >= 8:
       # Find rows based upon linear fit residuals
       subsets = combinations(centroids,4)
-      rows = []
+      residual_list = []
       for s in subsets:
-        if len(rows) < 2:
-          x = [p[0] for p in s]
-          y = [p[1] for p in s]
-          if self._rotate:
-            _, residuals, _, _, _ = np.polyfit(y, x, 1, full = True)
-          else:
-            _, residuals, _, _, _ = np.polyfit(x, y, 1, full = True)
-          if residuals < 1.5:
-            rows.append(list(s))
+        x = [p[0] for p in s]
+        y = [p[1] for p in s]
+        if self._rotate:
+          _, residuals, _, _, _ = np.polyfit(y, x, 1, full = True)
+        else:
+          _, residuals, _, _, _ = np.polyfit(x, y, 1, full = True)
+        residual_list.append((residuals[0],list(s)))
 
-      # If we can't find both rows by linearity, return empty
-      if len(rows) < 2:
-        return [[0],[0]]
+      # Take the two subsets with lowest residual
+      residual_list.sort(key=lambda x: x[0])
+      rows = [residual_list[0][1], residual_list[1][1]]
 
       # Now we have both rows, so we must decide which is the top row and which is the bottom row. First, sort each row so that the points in each row are organized from right to left (if rotated, top to bottom) in the image.
       if self._rotate:
@@ -612,45 +614,45 @@ class PnPSolver(object):
     # objp[6] = [ row_aft[1], row_port[1][2], row_down[1]]
     # objp[7] = [ row_aft[1], row_port[1][3], row_down[1]]
 
-    # # ORIENTATION TEST VICON FEATURE
-    # if self._print_feature_name:
-    #   print text_colors.OKGREEN + "Using orientation test vicon feature" + text_colors.ENDCOLOR
-    #   self._print_feature_name = False
-    # row_x = [0, -0.802]
-    # row_y = [[0.0, 0.161, 0.318, 0.476],[0.0, 0.159, 0.318, 0.472]]
-    # row_z = [0,0.256]
-    # # Lower row of beacons
-    # objp[0] = [ row_x[0], row_y[0][0], row_z[0]]
-    # objp[1] = [ row_x[0], row_y[0][1], row_z[0]]
-    # objp[2] = [ row_x[0], row_y[0][2], row_z[0]]
-    # objp[3] = [ row_x[0], row_y[0][3], row_z[0]]
-    # # Upper row of beacons
-    # objp[4] = [ row_x[1], row_y[1][0], row_z[1]]
-    # objp[5] = [ row_x[1], row_y[1][1], row_z[1]]
-    # objp[6] = [ row_x[1], row_y[1][2], row_z[1]]
-    # objp[7] = [ row_x[1], row_y[1][3], row_z[1]]
-
-    # TRAILER FEATURE
+    # ORIENTATION TEST VICON FEATURE
     if self._print_feature_name:
-      print text_colors.OKGREEN + "Using trailer feature" + text_colors.ENDCOLOR
+      print text_colors.OKGREEN + "Using orientation test vicon feature" + text_colors.ENDCOLOR
       self._print_feature_name = False
-    row_aft = [0,-1.397] # [m]
-    row_port_lower = [-0.297, -0.895, -1.495, -2.099] # [m]
-    row_port_lower = [elm - (-0.297) for elm in row_port_lower]
-    row_port_upper = [-0.300, -0.899, -1.498, -2.099] # [m]
-    row_port_upper = [elm - (-0.297) for elm in row_port_upper]
-    row_port = [row_port_lower, row_port_upper]
-    row_down = [0,-1.22] # [m]
+    row_x = [0, -0.802]
+    row_y = [[0.0, 0.161, 0.318, 0.476],[0.0, 0.159, 0.318, 0.472]]
+    row_z = [0,0.256]
     # Lower row of beacons
-    objp[0] = [ row_aft[0], row_port[0][0], row_down[0]]
-    objp[1] = [ row_aft[0], row_port[0][1], row_down[0]]
-    objp[2] = [ row_aft[0], row_port[0][2], row_down[0]]
-    objp[3] = [ row_aft[0], row_port[0][3], row_down[0]]
+    objp[0] = [ row_x[0], row_y[0][0], row_z[0]]
+    objp[1] = [ row_x[0], row_y[0][1], row_z[0]]
+    objp[2] = [ row_x[0], row_y[0][2], row_z[0]]
+    objp[3] = [ row_x[0], row_y[0][3], row_z[0]]
     # Upper row of beacons
-    objp[4] = [ row_aft[1], row_port[1][0], row_down[1]]
-    objp[5] = [ row_aft[1], row_port[1][1], row_down[1]]
-    objp[6] = [ row_aft[1], row_port[1][2], row_down[1]]
-    objp[7] = [ row_aft[1], row_port[1][3], row_down[1]]
+    objp[4] = [ row_x[1], row_y[1][0], row_z[1]]
+    objp[5] = [ row_x[1], row_y[1][1], row_z[1]]
+    objp[6] = [ row_x[1], row_y[1][2], row_z[1]]
+    objp[7] = [ row_x[1], row_y[1][3], row_z[1]]
+
+    # # TRAILER FEATURE
+    # if self._print_feature_name:
+    #   print text_colors.OKGREEN + "Using trailer feature" + text_colors.ENDCOLOR
+    #   self._print_feature_name = False
+    # row_aft = [0,-1.397] # [m]
+    # row_port_lower = [-0.297, -0.895, -1.495, -2.099] # [m]
+    # row_port_lower = [elm - (-0.297) for elm in row_port_lower]
+    # row_port_upper = [-0.300, -0.899, -1.498, -2.099] # [m]
+    # row_port_upper = [elm - (-0.297) for elm in row_port_upper]
+    # row_port = [row_port_lower, row_port_upper]
+    # row_down = [0,-1.22] # [m]
+    # # Lower row of beacons
+    # objp[0] = [ row_aft[0], row_port[0][0], row_down[0]]
+    # objp[1] = [ row_aft[0], row_port[0][1], row_down[0]]
+    # objp[2] = [ row_aft[0], row_port[0][2], row_down[0]]
+    # objp[3] = [ row_aft[0], row_port[0][3], row_down[0]]
+    # # Upper row of beacons
+    # objp[4] = [ row_aft[1], row_port[1][0], row_down[1]]
+    # objp[5] = [ row_aft[1], row_port[1][1], row_down[1]]
+    # objp[6] = [ row_aft[1], row_port[1][2], row_down[1]]
+    # objp[7] = [ row_aft[1], row_port[1][3], row_down[1]]
 
     # Define feature points by the correspondences determined above. The bottom row corresponds to the lower row of beacons, and the top row corresponds to the upper row. Each row in is arranged with the leftmost point in the image in the first index, and so on. 
     feature_points = np.zeros((8,1,2), np.float32)
@@ -692,7 +694,7 @@ class PnPSolver(object):
       yawpitchroll = self._zyx2ypr(orientation)
 
       # Draw axes on image
-      axis_len = 0.6 # [m]
+      axis_len = 0.16 # [m]
       axis = np.float32([[axis_len,0,0], [0,axis_len,0], [0,0,axis_len]]).reshape(-1,3)
       imgpts,_ = cv2.projectPoints(axis,rvecs,tvecs,self._mtx,self._dist)
       self._img = draw_axes(self._img,feature_points,imgpts)
