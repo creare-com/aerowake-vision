@@ -126,7 +126,7 @@ class CentroidFinder(object):
     max_value = 255
     block_size = 5
     const = 1
-    threshold_value = 30
+    threshold_value = 100
     _,self._img = cv2.threshold(self._img,threshold_value,max_value,cv2.THRESH_BINARY)
 
     if self._show_images:
@@ -614,45 +614,45 @@ class PnPSolver(object):
     # objp[6] = [ row_aft[1], row_port[1][2], row_down[1]]
     # objp[7] = [ row_aft[1], row_port[1][3], row_down[1]]
 
-    # ORIENTATION TEST VICON FEATURE
-    if self._print_feature_name:
-      print text_colors.OKGREEN + "Using orientation test vicon feature" + text_colors.ENDCOLOR
-      self._print_feature_name = False
-    row_x = [0, -0.802]
-    row_y = [[0.0, 0.161, 0.318, 0.476],[0.0, 0.159, 0.318, 0.472]]
-    row_z = [0,0.256]
-    # Lower row of beacons
-    objp[0] = [ row_x[0], row_y[0][0], row_z[0]]
-    objp[1] = [ row_x[0], row_y[0][1], row_z[0]]
-    objp[2] = [ row_x[0], row_y[0][2], row_z[0]]
-    objp[3] = [ row_x[0], row_y[0][3], row_z[0]]
-    # Upper row of beacons
-    objp[4] = [ row_x[1], row_y[1][0], row_z[1]]
-    objp[5] = [ row_x[1], row_y[1][1], row_z[1]]
-    objp[6] = [ row_x[1], row_y[1][2], row_z[1]]
-    objp[7] = [ row_x[1], row_y[1][3], row_z[1]]
-
-    # # TRAILER FEATURE
+    # # ORIENTATION TEST VICON FEATURE
     # if self._print_feature_name:
-    #   print text_colors.OKGREEN + "Using trailer feature" + text_colors.ENDCOLOR
+    #   print text_colors.OKGREEN + "Using orientation test vicon feature" + text_colors.ENDCOLOR
     #   self._print_feature_name = False
-    # row_aft = [0,-1.397] # [m]
-    # row_port_lower = [-0.297, -0.895, -1.495, -2.099] # [m]
-    # row_port_lower = [elm - (-0.297) for elm in row_port_lower]
-    # row_port_upper = [-0.300, -0.899, -1.498, -2.099] # [m]
-    # row_port_upper = [elm - (-0.297) for elm in row_port_upper]
-    # row_port = [row_port_lower, row_port_upper]
-    # row_down = [0,-1.22] # [m]
+    # row_x = [0, -0.802]
+    # row_y = [[0.0, 0.161, 0.318, 0.476],[0.0, 0.159, 0.318, 0.472]]
+    # row_z = [0,0.256]
     # # Lower row of beacons
-    # objp[0] = [ row_aft[0], row_port[0][0], row_down[0]]
-    # objp[1] = [ row_aft[0], row_port[0][1], row_down[0]]
-    # objp[2] = [ row_aft[0], row_port[0][2], row_down[0]]
-    # objp[3] = [ row_aft[0], row_port[0][3], row_down[0]]
+    # objp[0] = [ row_x[0], row_y[0][0], row_z[0]]
+    # objp[1] = [ row_x[0], row_y[0][1], row_z[0]]
+    # objp[2] = [ row_x[0], row_y[0][2], row_z[0]]
+    # objp[3] = [ row_x[0], row_y[0][3], row_z[0]]
     # # Upper row of beacons
-    # objp[4] = [ row_aft[1], row_port[1][0], row_down[1]]
-    # objp[5] = [ row_aft[1], row_port[1][1], row_down[1]]
-    # objp[6] = [ row_aft[1], row_port[1][2], row_down[1]]
-    # objp[7] = [ row_aft[1], row_port[1][3], row_down[1]]
+    # objp[4] = [ row_x[1], row_y[1][0], row_z[1]]
+    # objp[5] = [ row_x[1], row_y[1][1], row_z[1]]
+    # objp[6] = [ row_x[1], row_y[1][2], row_z[1]]
+    # objp[7] = [ row_x[1], row_y[1][3], row_z[1]]
+
+    # TRAILER FEATURE
+    if self._print_feature_name:
+      print text_colors.OKGREEN + "Using trailer feature" + text_colors.ENDCOLOR
+      self._print_feature_name = False
+    row_aft = [0,-1.397] # [m]
+    row_port_lower = [-0.297, -0.895, -1.495, -2.099] # [m]
+    row_port_lower = [elm - (-0.297) for elm in row_port_lower]
+    row_port_upper = [-0.300, -0.899, -1.498, -2.099] # [m]
+    row_port_upper = [elm - (-0.297) for elm in row_port_upper]
+    row_port = [row_port_lower, row_port_upper]
+    row_down = [0,-1.22] # [m]
+    # Lower row of beacons
+    objp[0] = [ row_aft[0], row_port[0][0], row_down[0]]
+    objp[1] = [ row_aft[0], row_port[0][1], row_down[0]]
+    objp[2] = [ row_aft[0], row_port[0][2], row_down[0]]
+    objp[3] = [ row_aft[0], row_port[0][3], row_down[0]]
+    # Upper row of beacons
+    objp[4] = [ row_aft[1], row_port[1][0], row_down[1]]
+    objp[5] = [ row_aft[1], row_port[1][1], row_down[1]]
+    objp[6] = [ row_aft[1], row_port[1][2], row_down[1]]
+    objp[7] = [ row_aft[1], row_port[1][3], row_down[1]]
 
     # Define feature points by the correspondences determined above. The bottom row corresponds to the lower row of beacons, and the top row corresponds to the upper row. Each row in is arranged with the leftmost point in the image in the first index, and so on. 
     feature_points = np.zeros((8,1,2), np.float32)
@@ -694,7 +694,7 @@ class PnPSolver(object):
       yawpitchroll = self._zyx2ypr(orientation)
 
       # Draw axes on image
-      axis_len = 0.16 # [m]
+      axis_len = 0.6 # [m]
       axis = np.float32([[axis_len,0,0], [0,axis_len,0], [0,0,axis_len]]).reshape(-1,3)
       imgpts,_ = cv2.projectPoints(axis,rvecs,tvecs,self._mtx,self._dist)
       self._img = draw_axes(self._img,feature_points,imgpts)
@@ -734,6 +734,9 @@ class PnPSolver(object):
     z = (-90 - z) % 360
     y = y + 90
 
+    if self._rotate:
+      x = x + 90
+
     # Limit z to +- 180
     if z > 180:
       z = z - 360
@@ -750,6 +753,8 @@ class PnPSolver(object):
 
     yaw = z
     pitch = y - 180
+    # if self._rotate:
+    #   x = x + 90
     if x > 0:
       roll = -(x - 180)
     else:
