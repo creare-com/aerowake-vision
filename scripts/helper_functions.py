@@ -126,7 +126,7 @@ class CentroidFinder(object):
     max_value = 255
     block_size = 5
     const = 1
-    threshold_value = 65
+    threshold_value = 30
     _,self._img = cv2.threshold(self._img,threshold_value,max_value,cv2.THRESH_BINARY)
 
     if self._show_images:

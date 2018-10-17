@@ -38,7 +38,7 @@ def status(length, percent):
 if __name__ == "__main__":
 
   # Set global variables
-  flag_show_images = True
+  flag_show_images = False
   flag_show_debug_images = False
   flag_show_debug_messages = False
   bagpath = sys.argv[1]
@@ -59,6 +59,9 @@ if __name__ == "__main__":
         rotate = True
       elif arg[:3] == '-s=':
         des_start = int(arg[3:])
+      elif arg == '-nh':
+        # No header. Useful is rosbag is in parts.
+        poses = []
       else:
         raise Exception('Invalid input.')
 
@@ -128,7 +131,7 @@ if __name__ == "__main__":
             # Save pose with bag time to list
             if not position[0] is None:
               elapsed = t - t_start
-              x,y,z = position
+              x,y,z = [elm*1.134 for elm in position]
               yaw,pitch,roll = yawpitchroll
               rx,ry,rz = orientation
               poses.append('%d.%0.9d,%d.%0.9d,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f\n' %(t.secs,t.nsecs,elapsed.secs,elapsed.nsecs,x,y,z,yaw,pitch,roll,rx,ry,rz))
