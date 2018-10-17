@@ -76,8 +76,8 @@ if __name__ == "__main__":
         dist = np.array(msg.D)
         break
 
-  mtx = np.array([[990.6089386924126, 0, 649.8683709187349], [0, 992.4546641961812, 493.67582459076], [0, 0, 1]])
-  dist = np.array([-0.331452753057412, 0.105959239301334, -0.0003981374517582984, -0.0002246535214772431, 0])
+  mtx = np.array([[578.7081591727842, 0, 506.3830195000974], [0, 575.5020697357721, 364.57035664501], [0, 0, 1]])
+  dist = np.array([-0.2595459593463686, 0.04624504977788417, -0.0007908549563772796, -0.000923039841816549, 0])
 
   # Create processing objects
   cfinder = CentroidFinder(flag_show_debug_images,flag_show_debug_messages)
@@ -131,9 +131,9 @@ if __name__ == "__main__":
             # Save pose with bag time to list
             if not position[0] is None:
               elapsed = t - t_start
-              x,y,z = [elm*1.134 for elm in position]
+              x,y,z = position
               yaw,pitch,roll = yawpitchroll
-              rx,ry,rz = orientation
+              rz,ry,rx = orientation
               poses.append('%d.%0.9d,%d.%0.9d,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f,%0.5f\n' %(t.secs,t.nsecs,elapsed.secs,elapsed.nsecs,x,y,z,yaw,pitch,roll,rx,ry,rz))
 
             # In the event of an error, we don't want to lose too much information. Save to file every so many lines.
