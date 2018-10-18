@@ -10,9 +10,6 @@ def raise_exception():
 def parse_line(line):
   '''
   Parses a string for desired data.
-  localPosNED # This one only for logs made prior to 16 Oct 2018
-  gcsLocalPosNED
-  uavLocalPosNED
   '''
   if 'localPosNED' in line:
     line = line.split(',')
@@ -33,10 +30,7 @@ if __name__ == "__main__":
   logpath = sys.argv[1]
   logdir = logpath[:logpath.rfind('/') + 1]
   logname = logpath[logpath.rfind('/') + 1:]
-  if logname.find('uav') >= 0:
-    savename = logname[:logname.find('uav') + 3] + '-proc' + logname[logname.find('uav') + 3:]
-  elif logname.find('gcs') >= 0:
-    savename = logname[:logname.find('gcs') + 3] + '-proc' + logname[logname.find('gcs') + 3:]
+  savename = logname.replace('uav','uav-ned').replace('gcs','gcs-ned').replace('.log','.csv')
 
   # Open output file and input file 
   with open(logdir + savename,'w') as wf:

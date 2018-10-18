@@ -44,7 +44,9 @@ if __name__ == "__main__":
   bagpath = sys.argv[1]
   bagdir = bagpath[:bagpath.rfind('/') + 1]
   bagname = bagpath[bagpath.rfind('/') + 1:]
-  filename = bagdir + 'CSV_' + bagname[:-4] + '.csv'
+  filename = bagname.replace('.bag','.csv').replace('bag','bag-pose')
+  print '\n',filename,'\n'
+  raise Exception
   rosbag_t0 = None
   t_start = None
   poses = []
@@ -62,6 +64,8 @@ if __name__ == "__main__":
       elif arg == '-nh':
         # No header. Useful is rosbag is in parts.
         poses = []
+      elif arg == '-i':
+        flag_show_images = True
       else:
         raise Exception('Invalid input.')
 
@@ -90,7 +94,7 @@ if __name__ == "__main__":
   start_time = info_dict['start']
   
   with Timer():
-    with open(filename,'w') as f:
+    with open(bagdir + filename,'w') as f:
       with rosbag.Bag(bagpath) as bag:
         last_time = time.clock()
         for topic, msg, t in bag.read_messages(start_time=genpy.rostime.Time(des_start)):

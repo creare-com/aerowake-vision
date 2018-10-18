@@ -37,10 +37,10 @@ if __name__ == "__main__":
   tfpath = sys.argv[1]
   tfdir = tfpath[:tfpath.rfind('/') + 1]
   tfname = tfpath[tfpath.rfind('/') + 1:]
-  filename = tfdir + tfname[:-4].replace('TF','TF-proc') + '.csv'
+  filename = tfname.replace('tfe','tfe-proc').replace('.txt','.csv')
 
   # Open output file and input file
-  with open(filename,'w') as wf:
+  with open(tfdir + filename,'w') as wf:
     with open(tfdir + tfname, 'r') as rf:
 
       # Read all data into a variable
