@@ -40,7 +40,7 @@ if __name__ == "__main__":
       all_data = rf.readlines()
 
       # Write file header
-      wf.write('t[s.ns],x[m],y[m],z[m],vx[m/s],vy[m/s],vz[m/s]\n')
+      wf.write('t[s.ns],x[m],y[m],z[m],vx[m/s],vy[m/s],vz[m/s],%s\n' %(logname))
 
       # Loop through each line and parse data
       for line in all_data:
