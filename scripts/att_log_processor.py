@@ -11,8 +11,10 @@ def parse_line(line):
   '''
   Parses a string for desired data.
   '''
-  if 'localPosNED' in line:
+  if 'ATTITUDE' in line:
     line = line.split(',')
+    print line
+    raise_exception()
     t = line[0]
     x = line[5].split(':')[1].replace(' ','')
     y = line[6].split(':')[1].replace(' ','')
