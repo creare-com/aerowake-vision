@@ -45,8 +45,6 @@ if __name__ == "__main__":
   bagdir = bagpath[:bagpath.rfind('/') + 1]
   bagname = bagpath[bagpath.rfind('/') + 1:]
   filename = bagname.replace('.bag','.csv').replace('bag','bag-pose')
-  print '\n',filename,'\n'
-  raise Exception
   rosbag_t0 = None
   t_start = None
   poses = []
