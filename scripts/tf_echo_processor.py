@@ -52,7 +52,7 @@ if __name__ == "__main__":
       write_to_file = False
 
       # Write file header
-      wf.write('t,x,y,z,rx,ry,rz\n')
+      wf.write('t,x,y,z,rx,ry,rz,%s\n' %(tfname))
 
       # Loop through each line and parse data
       for line in all_data:

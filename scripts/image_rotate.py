@@ -26,6 +26,8 @@ class ImageRotator(object):
     except CvBridgeError as e:
       print e
 
+    print img.shape
+
     # Rotate image without cutting anything off
     img = imutils.rotate_bound(img, 90)
 

@@ -48,7 +48,7 @@ if __name__ == "__main__":
   rosbag_t0 = None
   t_start = None
   poses = []
-  poses.append('time[s.ns],elapsed[s.ns],x[m],y[m],z[m],yaw[deg],pitch[deg],roll[deg],rx[deg],ry[deg],rz[deg]\n')
+  poses.append('time[s.ns],elapsed[s.ns],x[m],y[m],z[m],yaw[deg],pitch[deg],roll[deg],rx[deg],ry[deg],rz[deg],%s\n' %(bagname))
 
   # Parse user input
   des_start = 0
@@ -59,7 +59,7 @@ if __name__ == "__main__":
         rotate = True
       elif arg[:3] == '-s=':
         des_start = int(arg[3:])
-      elif arg == '-nh':
+      elif arg == '-n':
         # No header. Useful is rosbag is in parts.
         poses = []
       elif arg == '-i':
@@ -78,8 +78,9 @@ if __name__ == "__main__":
         dist = np.array(msg.D)
         break
 
-  mtx = np.array([[578.7081591727842, 0, 506.3830195000974], [0, 575.5020697357721, 364.57035664501], [0, 0, 1]])
-  dist = np.array([-0.2595459593463686, 0.04624504977788417, -0.0007908549563772796, -0.000923039841816549, 0])
+  # print '\nOVERWRITING MTX AND DIST\n'
+  # mtx = np.array([[578.7081591727842, 0, 506.3830195000974], [0, 575.5020697357721, 364.57035664501], [0, 0, 1]])
+  # dist = np.array([-0.2595459593463686, 0.04624504977788417, -0.0007908549563772796, -0.000923039841816549, 0])
 
   # Create processing objects
   cfinder = CentroidFinder(flag_show_debug_images,flag_show_debug_messages)

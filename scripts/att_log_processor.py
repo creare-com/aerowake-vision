@@ -13,16 +13,11 @@ def parse_line(line):
   '''
   if 'ATTITUDE' in line:
     line = line.split(',')
-    print line
-    raise_exception()
     t = line[0]
-    x = line[5].split(':')[1].replace(' ','')
-    y = line[6].split(':')[1].replace(' ','')
-    z = line[7].split(':')[1].replace(' ','')
-    vx = line[8].split(':')[1].replace(' ','')
-    vy = line[9].split(':')[1].replace(' ','')
-    vz = line[10].split(':')[1].replace(' ','').replace('}','')
-    return t,x,y,z,vx,vy,vz
+    r = float(line[5].split(':')[1].replace(' ',''))*180/np.pi
+    p = float(line[6].split(':')[1].replace(' ',''))*180/np.pi
+    y = float(line[7].split(':')[1].replace(' ',''))*180/np.pi
+    return t,r,p,y
   else:
     return None
 
@@ -42,10 +37,10 @@ if __name__ == "__main__":
       all_data = rf.readlines()
 
       # Write file header
-      wf.write('t[s.ns],x[m],y[m],z[m],vx[m/s],vy[m/s],vz[m/s],%s\n' %(logname))
+      wf.write('t[s.ns],roll[deg],pitch[deg],yaw[deg],%s\n' %(logname))
 
       # Loop through each line and parse data
       for line in all_data:
         data = parse_line(line)
         if not data is None:
-          wf.write('%s,%s,%s,%s,%s,%s,%s' %(data))
+          wf.write('%s,%s,%s,%s\n' %(data))
