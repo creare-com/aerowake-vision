@@ -1,0 +1,8 @@
+# These are settings for camera calibration
+
+camera:
+  camera_nodelet:
+    frame_rate: 15
+    auto_exposure: True
+    auto_shutter: True
+    auto_gain: True

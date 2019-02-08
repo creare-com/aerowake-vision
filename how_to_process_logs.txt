@@ -1,0 +1,96 @@
+# HOW TO PROCESS LOG FILES
+
+All python functions are available at https://github.com/Brndn004/creare
+Note on python functions: All output files appear in the directory of the input file.
+
+
+
+# FUNCTION INFO
+
+rosbag_processor.py
+info:
+	Takes a rosbag file and outputs the vision solution to a CSV file
+relevant logs:
+	input:
+		<name>-bag-<date>.bag
+	output:
+		<name>-bag-pose-<date>.csv
+options:
+-r
+	Handle a rotated feature. Used on the yellowhex (Creare UAV) since camera is mounted at 90 degrees.
+-s=<START>
+	Start processing <START> seconds into the bagfile. Useful if you know when an error occurs and don't want to wait for the bag to process to that point.
+-n
+	No header. Do not put a header in the output file. This is useful for flights where the video has been split into multiple bags. The first gets a header, and the remaining do not. Then the output files are concatenated into one CSV file via 'cat [file1] [file2] ... [filen] > [newfile]'.
+-i
+	Shows images on the screen as processing takes place. The first time you process a bag, you should watch the 'found_feature' window for the entire duration, as some parameter tuning may be required to get a good solution.
+
+python ned_log_processor.py <log path>
+info:
+	Takes a uav/gcs log and outputs the Pixhawk estimate for local North-East-Down coordinates to a CSV file
+relevant logs:
+	input:
+		<name>-uav-<date>.log
+		<name>-gcs-<date>.log
+	output:
+		<name>-uav-ned-<date>.csv
+		<name>-gcs-ned-<date>.csv
+
+python att_log_processor.py <log path>
+info:
+	Takes a uav/gcs log and outputs the Pixhawk estimate for roll, pitch, and yaw to a CSV file 
+relevant logs:
+	input:
+		<name>-uav-<date>.log
+		<name>-gcs-<date>.log
+	output:
+		<name>-uav-att-<date>.csv
+		<name>-gcs-att-<date>.csv
+
+
+
+# OUTDOOR FLIGHTS
+
+Step 1: Collect the following logs
+- <name>-uav-<date>.log
+- <name>-gcs-<date>.log
+- <name>-bag-<date>.bag
+
+Step 2: Process vision
+python rosbag_processor.py <bag path> <options>
+
+Step 3: Get GPS NED coordinates from UAV/GCS logs
+python ned_log_processor.py <uav log path>
+python ned_log_processor.py <gcs log path>
+
+Step 4: Get IMU attitude from UAV/GCS logs
+python att_log_processor.py <uav log path>
+python att_log_processor.py <gcs log path>
+
+Step 5: Do what you want with the output CSV files
+
+
+
+# VICON FLIGHTS
+
+Step 1: Collect the following logs
+- <name>-bag-<date>.bag
+
+Step 2: Process vision
+python rosbag_processor.py <log path> <options>
+
+Step 3: Capture tf_echo output of relative pose between feature and UAV
+- Start Terminal 1 and 3. Then start Terminal 2 followed as soon as possible by Terminal 4. ^C Terminal 4 when Terminal 3 automatically terminates. 
+- Terminal 1:
+~$ roscore
+- Terminal 2:
+~$ rosbag play <bagfile>
+- Terminal 3:
+~$ rosrun image_view image_view image:=/camera/image_raw
+- Terminal 4:
+~$ rosrun tf tf_echo /draper_feat /draper_uav 100 > /home/draper/logs/tf-echo-logs/<name>-tfe-<date>.log
+
+Step 4: Process tf_echo log
+python tf_echo_processor.py <log path>
+
+Step 5: Do what you want with the output CSV files

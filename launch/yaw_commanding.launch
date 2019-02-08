@@ -1,0 +1,15 @@
+<!-- Launch tag so that file is identified as a launch file -->
+<launch>
+
+  <!-- Launch the PointGrey camera driver via the PointGrey launch file -->
+  <include file="$(find pointgrey_camera_driver)/launch/my_camera.launch" /> 
+
+  <!-- Load camera parameters from file -->
+  <rosparam command="load" file="$(find creare)/params/camera_params.yaml"/>
+
+  <!-- Start the yaw command generation node -->
+  <node pkg="creare" name="image_yaw_creator" type="image_based_yaw.py" output="screen">
+    <remap from="raw_image" to="/camera/image_raw"/>
+  </node>
+
+</launch>

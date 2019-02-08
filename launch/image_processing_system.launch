@@ -1,0 +1,12 @@
+<launch>
+
+  <!-- Start the contour finder node -->
+  <node pkg="creare" name="centroid_finder" type="centroid_finder.py" output="screen" />
+
+  <!-- Start the feature extractor node -->
+  <node pkg="creare" name="noise_filter" type="noise_filter.py" output="screen" />
+
+  <!-- Start the pnp solver node -->
+  <node pkg="creare" name="pnp_solver" type="pnp_solver.py" output="screen" />
+
+</launch>

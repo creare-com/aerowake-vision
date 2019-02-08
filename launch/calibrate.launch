@@ -1,0 +1,13 @@
+<!-- Launch tag so that file is identified as a launch file -->
+<launch>
+
+  <!-- Launch the PointGrey camera driver via the PointGrey launch file -->
+  <include file="$(find pointgrey_camera_driver)/launch/my_camera.launch" /> 
+
+  <!-- Load camera settings for calibration -->
+  <rosparam command="load" file="$(find creare)/params/camera_setup.yaml"/>
+
+  <!-- Launch the calibration node -->
+  <node name="camera_calibrator" pkg="camera_calibration" type="cameracalibrator.py" args="--size 5x7 --square 0.027 image:=/camera/image_raw camera:=/camera" />
+
+</launch>
